@@ -299,9 +299,7 @@ def render_generate_tab(workflow, error_selector_ui, code_display_ui, user_level
             # Rerun to update UI
             st.rerun()
     else:
-        # Display error selection mode
-        st.markdown("#### Problem Setup")
-        
+       
         selection_mode = error_selector_ui.render_mode_selector()
         
         # Set parameters automatically based on user level (no UI controls)

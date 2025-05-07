@@ -48,6 +48,9 @@ def init_session_state():
     # Initialize sidebar state if not present
     if 'sidebar_tab' not in st.session_state:
         st.session_state.sidebar_tab = "Status"
+    
+    if 'user_level' not in st.session_state:
+        st.session_state.user_level = None
         
     # Initialize current step if needed - directly in workflow_state
     if hasattr(st.session_state, 'workflow_state') and not hasattr(st.session_state.workflow_state, 'current_step'):
@@ -269,33 +272,27 @@ def render_sidebar(llm_manager, workflow):
             st.markdown(f"**Provider:** {provider}  \n**Status:** {status}")
             
             if not connection_status:
-                st.error(f"Error: {message}")
-                st.markdown("""
-                Check your Groq API key in the .env file:
-                ```
-                GROQ_API_KEY=your_api_key
-                ```
-                """)
+                st.error(f"Error: {message}")                
         
         # Add separator
-        st.markdown("---")
+        # st.markdown("---")
         
-        # Reset button
-        if st.button("Reset Application", use_container_width=True):
-            # Reset the session state
-            for key in list(st.session_state.keys()):
-                # Keep provider selection and error categories
-                if key not in ["provider", "selected_error_categories"]:
-                    del st.session_state[key]
+        # # # Reset button
+        # # if st.button("Reset Application", use_container_width=True):
+        # #     # Reset the session state
+        # #     for key in list(st.session_state.keys()):
+        # #         # Keep provider selection and error categories
+        # #         if key not in ["provider", "selected_error_categories"]:
+        # #             del st.session_state[key]
             
-            # Reinitialize session state
-            init_session_state()
+        #     # Reinitialize session state
+        #     init_session_state()
             
-            # Set active tab to generate
-            st.session_state.active_tab = 0
+        #     # Set active tab to generate
+        #     st.session_state.active_tab = 0
             
-            # Rerun app
-            st.rerun()
+        #     # Rerun app
+        #     st.rerun()
 
 def create_enhanced_tabs(labels: List[str]):
     """

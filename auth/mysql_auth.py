@@ -61,8 +61,8 @@ class MySQLAuthManager:
         # Create the user in the database
         insert_query = """
             INSERT INTO users 
-            (uid, email, display_name, password, level) 
-            VALUES (%s, %s, %s, %s, %s)
+            (uid, email, display_name, password, level, score) 
+            VALUES (%s, %s, %s, %s, %s, 0)
         """
         
         affected_rows = self.db.execute_query(
@@ -111,7 +111,7 @@ class MySQLAuthManager:
     def get_user_profile(self, user_id: str) -> Dict[str, Any]:
         """Get a user's profile."""
         query = """
-            SELECT uid, email, display_name, level, reviews_completed, average_accuracy 
+            SELECT uid, email, display_name, level, reviews_completed, average_accuracy, score 
             FROM users 
             WHERE uid = %s
         """
@@ -126,7 +126,8 @@ class MySQLAuthManager:
                 "display_name": user["display_name"],
                 "level": user["level"],
                 "reviews_completed": user["reviews_completed"],
-                "average_accuracy": user["average_accuracy"]
+                "average_accuracy": user["average_accuracy"],
+                "score": user.get("score", 0)
             }
         
         return {"success": False, "error": "User not found"}
@@ -165,11 +166,13 @@ class MySQLAuthManager:
         else:
             return {"success": False, "error": "Error updating user data"}
     
-    def update_review_stats(self, user_id: str, accuracy: float) -> Dict[str, Any]:
+    def update_review_stats(self, user_id: str, accuracy: float, score: int = 0) -> Dict[str, Any]:
         """Update a user's review statistics."""
+        logger.info(f"MySQLAuthManager: Updating stats for user {user_id}: accuracy={accuracy:.1f}%, score={score}")
+        
         # Get current stats
         query = """
-            SELECT reviews_completed, average_accuracy 
+            SELECT reviews_completed, average_accuracy, score 
             FROM users 
             WHERE uid = %s
         """
@@ -177,34 +180,45 @@ class MySQLAuthManager:
         result = self.db.execute_query(query, (user_id,), fetch_one=True)
         
         if not result:
+            logger.error(f"User {user_id} not found in database")
             return {"success": False, "error": "User not found"}
         
         # Calculate new stats
         current_reviews = result["reviews_completed"]
         current_accuracy = result["average_accuracy"]
+        current_score = result.get("score", 0)
         
         new_reviews = current_reviews + 1
         new_accuracy = ((current_accuracy * current_reviews) + accuracy) / new_reviews
+        new_score = current_score + score
+        
+        logger.info(f"Updating user {user_id}: reviews {current_reviews} -> {new_reviews}, " +
+                f"accuracy {current_accuracy:.1f}% -> {new_accuracy:.1f}%, " + 
+                f"score {current_score} -> {new_score}")
         
         # Update the database
         update_query = """
             UPDATE users 
-            SET reviews_completed = %s, average_accuracy = %s 
+            SET reviews_completed = %s, average_accuracy = %s, score = %s 
             WHERE uid = %s
         """
         
         affected_rows = self.db.execute_query(
             update_query, 
-            (new_reviews, new_accuracy, user_id)
+            (new_reviews, new_accuracy, new_score, user_id)
         )
+        
+        logger.info(f"Database update affected rows: {affected_rows}")
         
         if affected_rows is not None:
             return {
                 "success": True,
                 "reviews_completed": new_reviews,
-                "average_accuracy": new_accuracy
+                "average_accuracy": new_accuracy,
+                "score": new_score
             }
         else:
+            logger.error("Database update failed")
             return {"success": False, "error": "Error updating review stats"}
     
     def get_all_users(self) -> List[Dict[str, Any]]:

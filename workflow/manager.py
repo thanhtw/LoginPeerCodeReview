@@ -237,7 +237,8 @@ class WorkflowManager:
                     identified_count = latest_review.analysis.get("identified_count", 0) 
                     latest_review.analysis["identified_percentage"] = (identified_count / original_error_count) * 100
                     latest_review.analysis["accuracy_percentage"] = (identified_count / original_error_count) * 100
-
+                    if auth_ui:
+                        auth_ui.update_review_stats(accuracy, identified_count)
                 # Convert review history to format expected by generate_comparison_report
                 converted_history = []
                 for review in state.review_history:

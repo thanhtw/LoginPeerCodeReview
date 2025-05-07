@@ -11,6 +11,7 @@ import sys
 import os
 import logging
 from dotenv import load_dotenv
+from state_schema import WorkflowState
 
 # Import CSS utilities
 from static.css_utils import load_css
@@ -93,6 +94,13 @@ def main():
         if not is_authenticated:
             return
 
+    # Get user level and store in session state - ADD THIS
+    user_level = auth_ui.get_user_level()    
+    st.session_state.user_level = user_level
+
+    # Add this line to display user profile in sidebar
+    auth_ui.render_user_profile()
+
     # Check if we're performing a full reset
     if st.session_state.get("full_reset", False):
         # Remove the reset flag
@@ -168,7 +176,7 @@ def main():
     
     # Tab content
     with tabs[0]:
-        render_generate_tab(workflow, error_selector_ui, code_display_ui)
+        render_generate_tab(workflow, error_selector_ui, code_display_ui, user_level)
     
     with tabs[1]:
         render_review_tab(workflow, code_display_ui)

@@ -188,18 +188,12 @@ class ErrorSelectorUI:
             for category in checkstyle_selected:
                 st.markdown(f"<div class='error-category'>{category}</div>", unsafe_allow_html=True)
         
-        # Enhanced debug output for advanced mode
-        print("\n========== ADVANCED MODE SELECTION ==========")
-        print(f"Build Categories: {build_selected}")
-        print(f"Checkstyle Categories: {checkstyle_selected}")
-        
         # If any categories are selected, show potential errors in each category
-        if build_selected or checkstyle_selected:
-            print("\n--- POTENTIAL ERRORS BY CATEGORY ---")
+        if build_selected or checkstyle_selected:          
             
             # For build categories
             for category in build_selected:
-                print(f"Build Category: {category}")
+              
                 # Get sample errors from this category if available
                 try:
                     from data.json_error_repository import JsonErrorRepository
@@ -214,8 +208,7 @@ class ErrorSelectorUI:
                     print(f"  Error retrieving category info: {str(e)}")
             
             # For checkstyle categories
-            for category in checkstyle_selected:
-                print(f"Checkstyle Category: {category}")
+            for category in checkstyle_selected:              
                 # Get sample errors from this category if available
                 try:
                     from data.json_error_repository import JsonErrorRepository
@@ -229,7 +222,7 @@ class ErrorSelectorUI:
                 except Exception as e:
                     print(f"  Error retrieving category info: {str(e)}")
         
-        print("=============================================")
+       
         
         return st.session_state.selected_error_categories
     
@@ -258,7 +251,7 @@ class ErrorSelectorUI:
         error_tabs = st.tabs(["Build Errors", "Code Quality Errors"])
         
         # Search filter above tabs that applies to both tabs
-        search_term = st.text_input("Search Errors", "")
+        #search_term = st.text_input("Search Errors", "")
         
         # Build Errors tab
         with error_tabs[0]:
@@ -267,9 +260,9 @@ class ErrorSelectorUI:
                 errors = error_repository.get_category_errors("build", category)
                 
                 # Filter by search term if provided
-                if search_term:
-                    errors = [e for e in errors if search_term.lower() in e.get("error_name", "").lower() 
-                            or search_term.lower() in e.get("description", "").lower()]
+                # if search_term:
+                #     errors = [e for e in errors if search_term.lower() in e.get("error_name", "").lower() 
+                #             or search_term.lower() in e.get("description", "").lower()]
                         
                 if not errors:
                     continue
@@ -313,9 +306,9 @@ class ErrorSelectorUI:
                 errors = error_repository.get_category_errors("checkstyle", category)
                 
                 # Filter by search term if provided
-                if search_term:
-                    errors = [e for e in errors if search_term.lower() in e.get("check_name", "").lower() 
-                            or search_term.lower() in e.get("description", "").lower()]
+                # if search_term:
+                #     errors = [e for e in errors if search_term.lower() in e.get("check_name", "").lower() 
+                #             or search_term.lower() in e.get("description", "").lower()]
                         
                 if not errors:
                     continue
@@ -403,10 +396,6 @@ class ErrorSelectorUI:
         )
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Print previous and new selection for debugging
-        print(f"\n========== MODE SELECTION CHANGE ==========")
-        print(f"Previous mode: {st.session_state.error_selection_mode}")
-        
         # Update error selection mode based on selection
         new_mode = st.session_state.error_selection_mode
         if "Advanced" in selected_option and st.session_state.error_selection_mode != "advanced":
@@ -416,8 +405,6 @@ class ErrorSelectorUI:
         
         # Only update if the mode has changed
         if new_mode != st.session_state.error_selection_mode:
-            print(f"Mode changing from {st.session_state.error_selection_mode} to {new_mode}")
-            
             # Store previous mode for reference
             previous_mode = st.session_state.error_selection_mode
             
@@ -430,10 +417,7 @@ class ErrorSelectorUI:
                 if "selected_specific_errors" not in st.session_state:
                     st.session_state.selected_specific_errors = []
         
-        print(f"Current mode: {st.session_state.error_selection_mode}")
-        print(f"Selected categories: {st.session_state.selected_error_categories}")
-        print("=============================================")
-        
+              
         # Show help text for the selected mode
         if st.session_state.error_selection_mode == "advanced":
             st.info("Advanced mode: Select specific error categories like LogicalErrors or NamingConventionChecks. The system will randomly select errors from these categories.")

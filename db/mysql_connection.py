@@ -93,7 +93,8 @@ class MySQLConnection:
                     level ENUM('basic', 'medium', 'senior') DEFAULT 'basic',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     reviews_completed INT DEFAULT 0,
-                    average_accuracy FLOAT DEFAULT 0.0
+                    average_accuracy FLOAT DEFAULT 0.0,
+                    score INT DEFAULT 0
                 )
             """)
             

@@ -92,6 +92,28 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
         
         # Extract latest analysis for display
         latest_analysis = latest_review.analysis if latest_review else None
+
+        if auth_ui and latest_analysis:
+            try:
+                # Extract accuracy and identified_count from the latest review
+                accuracy = latest_analysis.get("identified_percentage", 0)
+                identified_count = latest_analysis.get("identified_count", 0)
+                # Define a unique key for this review to avoid duplicate updates
+                review_update_key = f"stats_updated_{current_iteration}_{identified_count}"
+                
+                # Only update if we haven't already updated for this specific review
+                if review_update_key not in st.session_state:
+                    # Update user stats
+                    auth_ui.update_review_stats(accuracy, identified_count)
+                    
+                    # Mark as updated for this specific review
+                    st.session_state[review_update_key] = True
+                    
+                    logger.info(f"Updated user statistics for review {current_iteration}: " +
+                            f"accuracy={accuracy:.1f}%, score={identified_count}")                
+              
+            except Exception as e:
+                logger.error(f"Error updating user statistics: {str(e)}")
         
         # Generate a basic summary if nothing else is available
         if latest_analysis:

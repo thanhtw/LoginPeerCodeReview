@@ -47,7 +47,13 @@ class AuthUI:
         Returns:
             bool: True if user is authenticated, False otherwise
         """
-        st.title("Java Code Review Trainer - Login")
+        st.title("")
+
+        st.markdown("""
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h1 style="color: rgb(178 185 213); margin-bottom: 5px;">Java Code Review Trainer - Login</h1>                
+            </div>
+            """, unsafe_allow_html=True)
         
         # Create columns for login and registration
         col1, col2 = st.columns(2)
@@ -74,7 +80,7 @@ class AuthUI:
                             "display_name": result.get("display_name"),
                             "email": result.get("email"),
                             "level": result.get("level", "basic")
-                        }
+                        }                     
                         st.success("Login successful!")
                         
                         # Force UI refresh
@@ -171,11 +177,12 @@ class AuthUI:
                     # Display additional stats
                     reviews = profile.get("reviews_completed", 0)
                     accuracy = profile.get("average_accuracy", 0.0)
+                    score = profile.get("score", 0)
                     
                     st.sidebar.markdown("---")
                     st.sidebar.markdown("### Statistics")
-                    st.sidebar.markdown(f"**Reviews Completed:** {reviews}")
-                    st.sidebar.markdown(f"**Average Accuracy:** {accuracy:.1f}%")
+                    st.sidebar.markdown(f"**Reviews Completed:** {reviews}")                   
+                    st.sidebar.markdown(f"**Total Score:** {score}")
             except Exception as e:
                 logger.error(f"Error getting user profile: {str(e)}")
         
@@ -190,12 +197,13 @@ class AuthUI:
             # Force UI refresh
             st.rerun()
     
-    def update_review_stats(self, accuracy: float):
+    def update_review_stats(self, accuracy: float, score: int = 0):
         """
         Update a user's review statistics after completing a review.
         
         Args:
             accuracy: The accuracy of the review (0-100 percentage)
+            score: Number of errors detected in the review
         """
         # Check if user is authenticated
         if not st.session_state.auth.get("is_authenticated", False):
@@ -207,12 +215,19 @@ class AuthUI:
             
         # Update stats in the database
         user_id = st.session_state.auth.get("user_id")
-        result = self.auth_manager.update_review_stats(user_id, accuracy)
+        
+        # Ensure score is an integer
+        score = int(score) if score else 0
+        
+        # Add debug logging
+        logger.info(f"Updating stats for user {user_id}: accuracy={accuracy:.1f}%, score={score}")
+        
+        result = self.auth_manager.update_review_stats(user_id, accuracy, score)
 
         if result.get("success", False):
-            logger.info(f"Updated review stats for user {user_id}: accuracy={accuracy:.1f}%, " +
-                       f"total reviews={result.get('reviews_completed')}, " +
-                       f"average accuracy={result.get('average_accuracy'):.1f}%")
+            logger.info(f"Updated user statistics: reviews={result.get('reviews_completed')}, " +
+                    f"accuracy={result.get('average_accuracy'):.1f}%, " +
+                    f"score={result.get('score')}")
         else:
             logger.error(f"Failed to update review stats: {result.get('error', 'Unknown error')}")
     
@@ -227,12 +242,31 @@ class AuthUI:
     
     def get_user_level(self) -> str:
         """
-        Get the user's level.
+        Get the user's level directly from the database.
         
         Returns:
             str: User's level (basic, medium, senior) or None if not authenticated
         """
         if not self.is_authenticated():
             return None
+        
+        user_id = st.session_state.auth.get("user_id")
+        # Skip database query for demo users
+        if user_id == "demo-user":
+            return st.session_state.auth.get("user_info", {}).get("level", "basic")
             
-        return st.session_state.auth.get("user_info", {}).get("level", "basic")
+        try:
+            # Query the database for the latest user info
+            profile = self.auth_manager.get_user_profile(user_id)
+            if profile.get("success", False):
+                # Update the session state with the latest level
+                level = profile.get("level", "basic")
+                st.session_state.auth["user_info"]["level"] = level
+                return level
+            else:
+                # Fallback to session state if query fails
+                return st.session_state.auth.get("user_info", {}).get("level", "basic")
+        except Exception as e:
+            logger.error(f"Error getting user level from database: {str(e)}")
+            # Fallback to session state
+            return st.session_state.auth.get("user_info", {}).get("level", "basic")
