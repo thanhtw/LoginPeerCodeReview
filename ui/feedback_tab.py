@@ -6,9 +6,10 @@ This module provides the functions for rendering the feedback and analysis tab.
 
 import streamlit as st
 import logging
+import time
+import traceback
 from typing import Dict, List, Any, Optional, Callable
 from utils.code_utils import generate_comparison_report
-
 
 # Configure logging
 logging.basicConfig(
@@ -29,13 +30,30 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
     """
     state = st.session_state.workflow_state
 
+    # Add debug message to check what's being passed
+    logger.info(f"Feedback tab received auth_ui: {auth_ui is not None}")
+
     # Check if review process is completed
     review_completed = False
     if hasattr(state, 'current_iteration') and hasattr(state, 'max_iterations'):
         if state.current_iteration > state.max_iterations:
             review_completed = True
+            logger.info("Review completed: max iterations reached")
         elif hasattr(state, 'review_sufficient') and state.review_sufficient:
             review_completed = True
+            logger.info("Review completed: sufficient review")
+        
+        # New check: If all issues were found, mark as completed
+        if state.review_history and len(state.review_history) > 0:
+            latest_review = state.review_history[-1]
+            analysis = latest_review.analysis if hasattr(latest_review, 'analysis') else {}
+            
+            identified_count = analysis.get("identified_count", 0)
+            total_problems = analysis.get("total_problems", 0) 
+            
+            if identified_count == total_problems and total_problems > 0:
+                review_completed = True
+                logger.info(f"Review completed: all {total_problems} issues identified")
 
     # Block access if review not completed
     if not review_completed:
@@ -79,6 +97,7 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
                 logger.info("Generated comparison report for feedback tab")
         except Exception as e:
             logger.error(f"Error generating comparison report: {str(e)}")
+            logger.error(traceback.format_exc())  # Log full stacktrace
             if not state.comparison_report:
                 state.comparison_report = (
                     "# Review Feedback\n\n"
@@ -86,73 +105,51 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
                     "Please check your review history for details."
                 )
     
-    # Check if we have reviews but no feedback to display
-    if review_history and not state.comparison_report and not state.review_summary:
-        st.warning("Review data is available but no feedback generated. Generating feedback now...")
-        
-        # Extract latest analysis for display
-        latest_analysis = latest_review.analysis if latest_review else None
-
-        if auth_ui and latest_analysis:
-            try:
-                # Extract accuracy and identified_count from the latest review
-                accuracy = latest_analysis.get("identified_percentage", 0)
-                identified_count = latest_analysis.get("identified_count", 0)
-                # Define a unique key for this review to avoid duplicate updates
-                review_update_key = f"stats_updated_{current_iteration}_{identified_count}"
-                
-                # Only update if we haven't already updated for this specific review
-                if review_update_key not in st.session_state:
-                    # Update user stats
-                    auth_ui.update_review_stats(accuracy, identified_count)
-                    
-                    # Mark as updated for this specific review
-                    st.session_state[review_update_key] = True
-                    
-                    logger.info(f"Updated user statistics for review {current_iteration}: " +
-                            f"accuracy={accuracy:.1f}%, score={identified_count}")                
-              
-            except Exception as e:
-                logger.error(f"Error updating user statistics: {str(e)}")
-        
-        # Generate a basic summary if nothing else is available
-        if latest_analysis:
-            identified_count = latest_analysis.get("identified_count", 0)
-            total_problems = latest_analysis.get("total_problems", 0)
-            identified_percentage = latest_analysis.get("identified_percentage", 0)
-            
-            state.review_summary = (
-                f"# Review Summary\n\n"
-                f"You found {identified_count} out of {total_problems} issues "
-                f"({identified_percentage:.1f}% accuracy).\n\n"
-                f"Check the detailed analysis below for more information."
-            )
-            
-            logger.info("Generated basic review summary for feedback tab")
-    
-    # If no feedback generated yet but we have reviews, display a message
-    if not state.comparison_report and not state.review_summary and not review_history:
-        st.info("Please submit your review in the 'Submit Review' tab first.")
-        return
-    
     # Get the latest review analysis
     latest_analysis = latest_review.analysis if latest_review else None
     
-    # Update user statistics if AuthUI is provided
-    if auth_ui and latest_analysis and "stats_updated" not in st.session_state:
-        try:
-            # Extract accuracy from the latest review
-            accuracy = latest_analysis.get("identified_percentage", 0)
-            
-            # Update user stats
-            auth_ui.update_review_stats(accuracy)
-            
-            # Mark as updated to avoid multiple updates
-            st.session_state.stats_updated = True
-            
-            logger.info(f"Updated user statistics with accuracy: {accuracy:.1f}%")
-        except Exception as e:
-            logger.error(f"Error updating user statistics: {str(e)}")
+    # Update user statistics if AuthUI is provided and we have analysis
+    if auth_ui and latest_analysis:
+        # Create a unique update key for this specific review
+        current_iteration = getattr(state, 'current_iteration', 1) 
+        identified_count = latest_analysis.get("identified_count", 0)
+        stats_key = f"stats_updated_{current_iteration}_{identified_count}"
+        
+        if stats_key not in st.session_state:
+            try:
+                # Extract accuracy and identified_count from the latest review
+                accuracy = latest_analysis.get("identified_percentage", 0)
+                
+                # Log details before update
+                logger.info(f"Preparing to update stats: accuracy={accuracy:.1f}%, " + 
+                        f"score={identified_count} (identified count), key={stats_key}")
+                
+                # Update user stats with identified_count as score
+                result = auth_ui.update_review_stats(accuracy, identified_count)
+                
+                # Store the update result for debugging
+                st.session_state[stats_key] = result
+                
+                # Log the update result
+                if result and result.get("success", False):
+                    logger.info(f"Successfully updated user statistics: {result}")
+                    
+                    # Add explicit UI message about the update
+                    st.success(f"Statistics updated! Added {identified_count} to your score.")
+                    
+                    # Give the database a moment to complete the update
+                    time.sleep(0.5)
+                    
+                    # Force UI refresh after successful update
+                    st.rerun()
+                else:
+                    err_msg = result.get('error', 'Unknown error') if result else "No result returned"
+                    logger.error(f"Failed to update user statistics: {err_msg}")
+                    st.error(f"Failed to update statistics: {err_msg}")
+            except Exception as e:
+                logger.error(f"Error updating user statistics: {str(e)}")
+                logger.error(traceback.format_exc())
+                st.error(f"Error updating statistics: {str(e)}")
     
     # Display feedback results
     feedback_display_ui.render_results(
@@ -170,9 +167,10 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
         st.markdown("Start a new code review session to practice with different errors.")
     with new_session_col2:
         if st.button("Start New Session", use_container_width=True):
-            # Clear the stats_updated flag
-            if "stats_updated" in st.session_state:
-                del st.session_state.stats_updated
+            # Clear all update keys in session state
+            keys_to_remove = [k for k in st.session_state.keys() if k.startswith("stats_updated_")]
+            for key in keys_to_remove:
+                del st.session_state[key]
                 
             # Set the full reset flag
             st.session_state.full_reset = True

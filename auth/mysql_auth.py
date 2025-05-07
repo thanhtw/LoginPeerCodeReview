@@ -111,7 +111,7 @@ class MySQLAuthManager:
     def get_user_profile(self, user_id: str) -> Dict[str, Any]:
         """Get a user's profile."""
         query = """
-            SELECT uid, email, display_name, level, reviews_completed, average_accuracy, score 
+            SELECT uid, email, display_name, level, reviews_completed, score 
             FROM users 
             WHERE uid = %s
         """
@@ -126,7 +126,6 @@ class MySQLAuthManager:
                 "display_name": user["display_name"],
                 "level": user["level"],
                 "reviews_completed": user["reviews_completed"],
-                "average_accuracy": user["average_accuracy"],
                 "score": user.get("score", 0)
             }
         
@@ -136,7 +135,7 @@ class MySQLAuthManager:
         """Update a user's profile."""
         # Ensure we don't update sensitive fields
         safe_updates = {k: v for k, v in updates.items() if k in [
-            "display_name", "level", "reviews_completed", "average_accuracy"
+            "display_name", "level", "reviews_completed"
         ]}
         
         if not safe_updates:
@@ -167,64 +166,70 @@ class MySQLAuthManager:
             return {"success": False, "error": "Error updating user data"}
     
     def update_review_stats(self, user_id: str, accuracy: float, score: int = 0) -> Dict[str, Any]:
-        """Update a user's review statistics."""
+        """Update a user's review statistics with score."""
         logger.info(f"MySQLAuthManager: Updating stats for user {user_id}: accuracy={accuracy:.1f}%, score={score}")
+        
+        # Validate connection
+        if not self.db:
+            logger.error("Database connection not initialized")
+            return {"success": False, "error": "Database connection not initialized"}
         
         # Get current stats
         query = """
-            SELECT reviews_completed, average_accuracy, score 
+            SELECT reviews_completed, score 
             FROM users 
             WHERE uid = %s
         """
         
+        logger.info(f"Executing query to get current stats for user {user_id}")
         result = self.db.execute_query(query, (user_id,), fetch_one=True)
         
         if not result:
             logger.error(f"User {user_id} not found in database")
             return {"success": False, "error": "User not found"}
         
+        # Log retrieved values
+        logger.info(f"Retrieved current stats: {result}")
+        
         # Calculate new stats
         current_reviews = result["reviews_completed"]
-        current_accuracy = result["average_accuracy"]
         current_score = result.get("score", 0)
         
         new_reviews = current_reviews + 1
-        new_accuracy = ((current_accuracy * current_reviews) + accuracy) / new_reviews
         new_score = current_score + score
         
-        logger.info(f"Updating user {user_id}: reviews {current_reviews} -> {new_reviews}, " +
-                f"accuracy {current_accuracy:.1f}% -> {new_accuracy:.1f}%, " + 
-                f"score {current_score} -> {new_score}")
+        logger.info(f"Calculated new stats: reviews {current_reviews} -> {new_reviews}, " + 
+                f"score {current_score} -> {new_score} (added {score} points)")
         
         # Update the database
         update_query = """
             UPDATE users 
-            SET reviews_completed = %s, average_accuracy = %s, score = %s 
+            SET reviews_completed = %s, score = %s 
             WHERE uid = %s
         """
         
+        logger.info(f"Executing update query with params: ({new_reviews}, {new_score}, {user_id})")
         affected_rows = self.db.execute_query(
             update_query, 
-            (new_reviews, new_accuracy, new_score, user_id)
+            (new_reviews, new_score, user_id)
         )
         
         logger.info(f"Database update affected rows: {affected_rows}")
         
-        if affected_rows is not None:
+        if affected_rows is not None and affected_rows >= 0:
             return {
                 "success": True,
                 "reviews_completed": new_reviews,
-                "average_accuracy": new_accuracy,
                 "score": new_score
             }
         else:
-            logger.error("Database update failed")
+            logger.error("Database update failed or returned None")
             return {"success": False, "error": "Error updating review stats"}
     
     def get_all_users(self) -> List[Dict[str, Any]]:
         """Get a list of all users."""
         query = """
-            SELECT uid, email, display_name, level, created_at, reviews_completed, average_accuracy 
+            SELECT uid, email, display_name, level, created_at, reviews_completed
             FROM users
         """
         

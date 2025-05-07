@@ -99,7 +99,7 @@ def main():
     st.session_state.user_level = user_level
 
     # Add this line to display user profile in sidebar
-    auth_ui.render_user_profile()
+    
 
     # Check if we're performing a full reset
     if st.session_state.get("full_reset", False):
@@ -114,7 +114,6 @@ def main():
         st.session_state.workflow_state = WorkflowState()
         # Set active tab to generation tab
         st.session_state.active_tab = 0
-    
     
     # Initialize session state
     init_session_state()
@@ -140,6 +139,9 @@ def main():
     
     # Render sidebar with provider status
     render_sidebar(llm_manager, workflow)
+
+    auth_ui.render_user_profile()
+
     provider_selector.render_provider_status()
     
     # Header with improved styling
@@ -182,7 +184,7 @@ def main():
         render_review_tab(workflow, code_display_ui)
     
     with tabs[2]:
-        render_feedback_tab(workflow, feedback_display_ui)
+        render_feedback_tab(workflow, feedback_display_ui, auth_ui)
         
     with tabs[3]:  
         render_llm_logs_tab()

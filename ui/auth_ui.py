@@ -7,10 +7,9 @@ registration, and profile management using local JSON files.
 
 import streamlit as st
 import logging
+import time
 from typing import Dict, Any, Optional, Callable
 
-# Import LocalAuthManager for authentication
-from auth.local_auth import LocalAuthManager
 from auth.mysql_auth import MySQLAuthManager
 
 # Configure logging
@@ -176,11 +175,8 @@ class AuthUI:
                 if profile.get("success", False):
                     # Display additional stats
                     reviews = profile.get("reviews_completed", 0)
-                    accuracy = profile.get("average_accuracy", 0.0)
-                    score = profile.get("score", 0)
+                    score = profile.get("score", 0)                   
                     
-                    st.sidebar.markdown("---")
-                    st.sidebar.markdown("### Statistics")
                     st.sidebar.markdown(f"**Reviews Completed:** {reviews}")                   
                     st.sidebar.markdown(f"**Total Score:** {score}")
             except Exception as e:
@@ -207,12 +203,12 @@ class AuthUI:
         """
         # Check if user is authenticated
         if not st.session_state.auth.get("is_authenticated", False):
-            return
-            
+            return {"success": False, "error": "User not authenticated"}
+                
         # Skip for demo user
         if st.session_state.auth.get("user_id") == "demo-user":
-            return
-            
+            return {"success": True, "message": "Demo user - no updates needed"}
+                
         # Update stats in the database
         user_id = st.session_state.auth.get("user_id")
         
@@ -220,16 +216,19 @@ class AuthUI:
         score = int(score) if score else 0
         
         # Add debug logging
-        logger.info(f"Updating stats for user {user_id}: accuracy={accuracy:.1f}%, score={score}")
+        logger.info(f"AuthUI: Updating stats for user {user_id}: accuracy={accuracy:.1f}%, score={score}")
         
+        # IMPORTANT: Pass both accuracy AND score parameters to the auth manager
         result = self.auth_manager.update_review_stats(user_id, accuracy, score)
 
-        if result.get("success", False):
+        if result and result.get("success", False):
             logger.info(f"Updated user statistics: reviews={result.get('reviews_completed')}, " +
-                    f"accuracy={result.get('average_accuracy'):.1f}%, " +
                     f"score={result.get('score')}")
         else:
-            logger.error(f"Failed to update review stats: {result.get('error', 'Unknown error')}")
+            err_msg = result.get('error', 'Unknown error') if result else "No result returned"
+            logger.error(f"Failed to update review stats: {err_msg}")
+        
+        return result
     
     def is_authenticated(self) -> bool:
         """

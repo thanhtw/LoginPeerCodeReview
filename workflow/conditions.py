@@ -67,6 +67,7 @@ class WorkflowConditions:
         logger.info(f"Path decision: review_code (attempts: {current_attempts}/{max_attempts})")
         return "review_code"
     
+    
     @staticmethod
     def should_continue_review(state: WorkflowState) -> str:
         """
@@ -79,10 +80,10 @@ class WorkflowConditions:
             
         Returns:
             "continue_review" if more review iterations are needed
-            "generate_summary" if the review is sufficient or max iterations reached
+            "generate_summary" if the review is sufficient or max iterations reached or all issues identified
         """
         logger.debug(f"Deciding review path with state: iteration={state.current_iteration}/{state.max_iterations}, "
-                   f"sufficient={state.review_sufficient}")
+                f"sufficient={state.review_sufficient}")
         
         # Check if we've reached max iterations
         if state.current_iteration > state.max_iterations:
@@ -93,6 +94,15 @@ class WorkflowConditions:
         if state.review_sufficient:
             logger.info("Review path decision: generate_summary (review sufficient)")
             return "generate_summary"
+        
+        # Check if all issues have been identified
+        latest_review = state.review_history[-1] if state.review_history else None
+        if latest_review and latest_review.analysis:
+            identified_count = latest_review.analysis.get("identified_count", 0)
+            total_problems = latest_review.analysis.get("total_problems", 0)
+            if identified_count == total_problems and total_problems > 0:
+                logger.info(f"Review path decision: generate_summary (all {total_problems} issues identified)")
+                return "generate_summary"
         
         # Otherwise, continue reviewing
         logger.info(f"Review path decision: continue_review (iteration {state.current_iteration}, not sufficient)")
