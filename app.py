@@ -121,6 +121,8 @@ def main():
     # Initialize LLM manager
     llm_manager = LLMManager()
     
+    auth_ui.render_user_profile()
+
     # Initialize provider selector UI
     provider_selector = ProviderSelectorUI(llm_manager)
     
@@ -131,7 +133,7 @@ def main():
     
     # Initialize workflow after provider is setup
     workflow = JavaCodeReviewGraph(llm_manager)
-    
+
     # Initialize UI components
     error_selector_ui = ErrorSelectorUI()
     code_display_ui = CodeDisplayUI()
@@ -140,7 +142,7 @@ def main():
     # Render sidebar with provider status
     render_sidebar(llm_manager, workflow)
 
-    auth_ui.render_user_profile()
+   
 
     provider_selector.render_provider_status()
     

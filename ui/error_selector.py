@@ -89,7 +89,7 @@ class ErrorSelectorUI:
             st.session_state.selected_error_categories["checkstyle"] = []
         
         # Build errors section
-        st.markdown("<div class='section-card'>BUILD ISSUEs</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-card'>Build Issues</div>", unsafe_allow_html=True)
         
         # Create a multi-column layout for build errors
         build_cols = st.columns(2)
@@ -130,7 +130,7 @@ class ErrorSelectorUI:
         st.session_state.selected_error_categories["build"] = current_build_selections
         
         # Checkstyle errors section
-        st.markdown("<div class='section-card'>CODE QUALITY ISSUES</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-card'>Code Quality Issues</div>", unsafe_allow_html=True)
         
         # Create a multi-column layout for checkstyle errors
         checkstyle_cols = st.columns(2)

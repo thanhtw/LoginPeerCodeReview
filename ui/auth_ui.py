@@ -162,11 +162,9 @@ class AuthUI:
         display_name = user_info.get("display_name", "User")
         level = user_info.get("level", "basic").capitalize()
         
-        # Display user info
-        st.sidebar.markdown("## User Profile")
-        st.sidebar.markdown(f"**Name:** {display_name}")
-        st.sidebar.markdown(f"**Level:** {level}")
-        
+        # Display user info       
+        st.sidebar.markdown(f"**Hi:** {display_name} - **Your level**: {level}")
+     
         # Get extended profile from database if user is not demo user
         if st.session_state.auth.get("user_id") != "demo-user":
             user_id = st.session_state.auth.get("user_id")
@@ -176,22 +174,20 @@ class AuthUI:
                     # Display additional stats
                     reviews = profile.get("reviews_completed", 0)
                     score = profile.get("score", 0)                   
-                    
-                    st.sidebar.markdown(f"**Reviews Completed:** {reviews}")                   
-                    st.sidebar.markdown(f"**Total Score:** {score}")
+                    st.sidebar.markdown(f"**Review Times:** {reviews} - **Your Score:** {score}")   
             except Exception as e:
                 logger.error(f"Error getting user profile: {str(e)}")
         
         # Add logout button
-        if st.sidebar.button("Logout"):
-            # Clear authentication state
-            st.session_state.auth = {
-                "is_authenticated": False,
-                "user_id": None,
-                "user_info": {}
-            }
-            # Force UI refresh
-            st.rerun()
+        # if st.sidebar.button("Logout"):
+        #     # Clear authentication state
+        #     st.session_state.auth = {
+        #         "is_authenticated": False,
+        #         "user_id": None,
+        #         "user_info": {}
+        #     }
+        #     # Force UI refresh
+        #     st.rerun()
     
     def update_review_stats(self, accuracy: float, score: int = 0):
         """
