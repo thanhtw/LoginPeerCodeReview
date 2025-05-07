@@ -61,9 +61,10 @@ class ErrorSelectorUI:
     def render_category_selection(self, all_categories: Dict[str, List[str]]) -> Dict[str, List[str]]:
         """
         Render the error category selection UI for advanced mode with enhanced debugging.
+        Each error category from Java_code_review_errors.json is displayed as a checkbox.
         
         Args:
-            all_categories: Dictionary with 'build' and 'checkstyle' categories
+            all_categories: Dictionary with 'java_errors' categories
             
         Returns:
             Dictionary with selected categories
@@ -77,39 +78,34 @@ class ErrorSelectorUI:
         to include in the generated code.
         """)
         
-        build_categories = all_categories.get("build", [])
-        checkstyle_categories = all_categories.get("checkstyle", [])
+        java_error_categories = all_categories.get("java_errors", [])
         
         # Ensure the session state structure is correct
         if "selected_error_categories" not in st.session_state:
-            st.session_state.selected_error_categories = {"build": [], "checkstyle": []}
-        if "build" not in st.session_state.selected_error_categories:
-            st.session_state.selected_error_categories["build"] = []
-        if "checkstyle" not in st.session_state.selected_error_categories:
-            st.session_state.selected_error_categories["checkstyle"] = []
+            st.session_state.selected_error_categories = {"java_errors": []}
+        if "java_errors" not in st.session_state.selected_error_categories:
+            st.session_state.selected_error_categories["java_errors"] = []
         
-        # Build errors section
-        st.markdown("<div class='section-card'>Build Issues</div>", unsafe_allow_html=True)
         
-        # Create a multi-column layout for build errors
-        build_cols = st.columns(2)
+        # Create a multi-column layout for categories
+        cols = st.columns(2)
         
         # Get the current selection state from session
-        current_build_selections = st.session_state.selected_error_categories.get("build", [])
+        current_selections = st.session_state.selected_error_categories.get("java_errors", [])
         
-        # Split the build categories into two columns
-        half_length = len(build_categories) // 2
-        for i, col in enumerate(build_cols):
+        # Split the categories into two columns
+        half_length = len(java_error_categories) // 2
+        for i, col in enumerate(cols):
             start_idx = i * half_length
-            end_idx = start_idx + half_length if i == 0 else len(build_categories)
+            end_idx = start_idx + half_length if i == 0 else len(java_error_categories)
             
             with col:
-                for category in build_categories[start_idx:end_idx]:
+                for category in java_error_categories[start_idx:end_idx]:
                     # Create a unique key for this category
-                    category_key = f"build_{category}"
+                    category_key = f"java_{category}"
                     
                     # Check if category is already selected from session state
-                    is_selected = category in current_build_selections
+                    is_selected = category in current_selections
                     
                     # Create the checkbox
                     selected = st.checkbox(
@@ -120,115 +116,31 @@ class ErrorSelectorUI:
                     
                     # Update selection state based on checkbox
                     if selected:
-                        if category not in current_build_selections:
-                            current_build_selections.append(category)
+                        if category not in current_selections:
+                            current_selections.append(category)
                     else:
-                        if category in current_build_selections:
-                            current_build_selections.remove(category)
+                        if category in current_selections:
+                            current_selections.remove(category)
         
-        # Update build selections in session state
-        st.session_state.selected_error_categories["build"] = current_build_selections
-        
-        # Checkstyle errors section
-        st.markdown("<div class='section-card'>Code Quality Issues</div>", unsafe_allow_html=True)
-        
-        # Create a multi-column layout for checkstyle errors
-        checkstyle_cols = st.columns(2)
-        
-        # Get the current selection state from session
-        current_checkstyle_selections = st.session_state.selected_error_categories.get("checkstyle", [])
-        
-        # Split the checkstyle categories into two columns
-        half_length = len(checkstyle_categories) // 2
-        for i, col in enumerate(checkstyle_cols):
-            start_idx = i * half_length
-            end_idx = start_idx + half_length if i == 0 else len(checkstyle_categories)
-            
-            with col:
-                for category in checkstyle_categories[start_idx:end_idx]:
-                    # Create a unique key for this category
-                    category_key = f"checkstyle_{category}"
-                    
-                    # Check if category is already selected from session state
-                    is_selected = category in current_checkstyle_selections
-                    
-                    # Create the checkbox
-                    selected = st.checkbox(
-                        category,
-                        key=category_key,
-                        value=is_selected
-                    )
-                    
-                    # Update selection state based on checkbox
-                    if selected:
-                        if category not in current_checkstyle_selections:
-                            current_checkstyle_selections.append(category)
-                    else:
-                        if category in current_checkstyle_selections:
-                            current_checkstyle_selections.remove(category)
-        
-        # Update checkstyle selections in session state
-        st.session_state.selected_error_categories["checkstyle"] = current_checkstyle_selections
+        # Update selections in session state
+        st.session_state.selected_error_categories["java_errors"] = current_selections
         
         # Selection summary
-        build_selected = st.session_state.selected_error_categories.get("build", [])
-        checkstyle_selected = st.session_state.selected_error_categories.get("checkstyle", [])
-        
         st.write("### Selected Categories")
-        if not build_selected and not checkstyle_selected:
+        if not current_selections:
             st.warning("No categories selected. You must select at least one category to generate code.")
         
-        if build_selected:
-            st.write("Build ISSUES Categories:")
-            for category in build_selected:
+        if current_selections:
+            st.write("Java Error Categories:")
+            for category in current_selections:
                 st.markdown(f"<div class='error-category'>{category}</div>", unsafe_allow_html=True)
-        
-        if checkstyle_selected:
-            st.write("CODE QUALITY ISSUE Categories:")
-            for category in checkstyle_selected:
-                st.markdown(f"<div class='error-category'>{category}</div>", unsafe_allow_html=True)
-        
-        # If any categories are selected, show potential errors in each category
-        if build_selected or checkstyle_selected:          
-            
-            # For build categories
-            for category in build_selected:
-              
-                # Get sample errors from this category if available
-                try:
-                    from data.json_error_repository import JsonErrorRepository
-                    repo = JsonErrorRepository()
-                    errors = repo.get_category_errors("build", category)
-                    if errors:
-                        print(f"  Sample errors (max 3):")
-                        for i, error in enumerate(errors[:3]):
-                            print(f"    {i+1}. {error.get('error_name', 'Unknown')}: {error.get('description', '')[:50]}..." 
-                                if len(error.get('description', '')) > 50 else error.get('description', ''))
-                except Exception as e:
-                    print(f"  Error retrieving category info: {str(e)}")
-            
-            # For checkstyle categories
-            for category in checkstyle_selected:              
-                # Get sample errors from this category if available
-                try:
-                    from data.json_error_repository import JsonErrorRepository
-                    repo = JsonErrorRepository()
-                    errors = repo.get_category_errors("checkstyle", category)
-                    if errors:
-                        print(f"  Sample errors (max 3):")
-                        for i, error in enumerate(errors[:3]):
-                            print(f"    {i+1}. {error.get('check_name', 'Unknown')}: {error.get('description', '')[:50]}..." 
-                                if len(error.get('description', '')) > 50 else error.get('description', ''))
-                except Exception as e:
-                    print(f"  Error retrieving category info: {str(e)}")
-        
-       
         
         return st.session_state.selected_error_categories
     
     def render_specific_error_selection(self, error_repository) -> List[Dict[str, Any]]:
         """
         Render UI for selecting specific errors to include in generated code.
+        Each group in Java_code_review_errors.json is displayed as a tab.
         
         Args:
             error_repository: Repository for accessing Java error data
@@ -240,111 +152,55 @@ class ErrorSelectorUI:
         
         # Get all categories
         all_categories = error_repository.get_all_categories()
-        build_categories = all_categories.get("build", [])
-        checkstyle_categories = all_categories.get("checkstyle", [])
+        java_error_categories = all_categories.get("java_errors", [])
         
         # Container for selected errors
         if "selected_specific_errors" not in st.session_state:
             st.session_state.selected_specific_errors = []
             
-        # Create tabs for Build and Code Quality errors
-        error_tabs = st.tabs(["Build Errors", "Code Quality Errors"])
-        
-        # Search filter above tabs that applies to both tabs
-        #search_term = st.text_input("Search Errors", "")
-        
-        # Build Errors tab
-        with error_tabs[0]:
-            for category in build_categories:
+        # Create tabs for each error category
+        error_tabs = st.tabs(java_error_categories)
+        # For each category tab
+        for i, category in enumerate(java_error_categories):
+            with error_tabs[i]:
                 # Get errors for this category
-                errors = error_repository.get_category_errors("build", category)
-                
-                # Filter by search term if provided
-                # if search_term:
-                #     errors = [e for e in errors if search_term.lower() in e.get("error_name", "").lower() 
-                #             or search_term.lower() in e.get("description", "").lower()]
-                        
+                errors = error_repository.get_category_errors(category)
                 if not errors:
+                    st.info(f"No errors found in {category} category.")
                     continue
                     
-                # Display category with expander
-                with st.expander(f"{category} ({len(errors)} errors)"):
-                    for error in errors:
-                        error_name = error.get("error_name", "Unknown")
-                        description = error.get("description", "")
-                        
-                        # Check if already selected
-                        is_selected = any(
-                            e["type"] == "build" and e["name"] == error_name 
-                            for e in st.session_state.selected_specific_errors
-                        )
-                        
-                        # Add select button
-                        col1, col2 = st.columns([5, 1])
-                        with col1:
-                            st.markdown(f"**{error_name}**")
-                            st.markdown(f"*{description}*")
-                        with col2:
-                            if not is_selected:
-                                if st.button("Select", key=f"build_{category}_{error_name}"):
-                                    st.session_state.selected_specific_errors.append({
-                                        "type": "build",
-                                        "category": category,
-                                        "name": error_name,
-                                        "description": description
-                                    })
-                                    st.rerun()
-                            else:
-                                st.success("Selected")
-                        
-                        st.markdown("---")
-        
-        # Code Quality Errors tab
-        with error_tabs[1]:
-            for category in checkstyle_categories:
-                # Get errors for this category
-                errors = error_repository.get_category_errors("checkstyle", category)
-                
-                # Filter by search term if provided
-                # if search_term:
-                #     errors = [e for e in errors if search_term.lower() in e.get("check_name", "").lower() 
-                #             or search_term.lower() in e.get("description", "").lower()]
-                        
-                if not errors:
-                    continue
+                # Display each error with a select button
+                for error in errors:
+                    error_name = error.get("error_name", "Unknown")
+                    description = error.get("description", "")
                     
-                # Display category with expander
-                with st.expander(f"{category} ({len(errors)} errors)"):
-                    for error in errors:
-                        error_name = error.get("check_name", "Unknown")
-                        description = error.get("description", "")
-                        
-                        # Check if already selected
-                        is_selected = any(
-                            e["type"] == "checkstyle" and e["name"] == error_name 
-                            for e in st.session_state.selected_specific_errors
-                        )
-                        
-                        # Add select button
-                        col1, col2 = st.columns([5, 1])
-                        with col1:
-                            st.markdown(f"**{error_name}**")
-                            st.markdown(f"*{description}*")
-                        with col2:
-                            if not is_selected:
-                                if st.button("Select", key=f"checkstyle_{category}_{error_name}"):
-                                    st.session_state.selected_specific_errors.append({
-                                        "type": "checkstyle",
-                                        "category": category,
-                                        "name": error_name,
-                                        "description": description
-                                    })
-                                    st.rerun()
-                            else:
-                                st.success("Selected")
-                        
-                        st.markdown("---")
-            
+                    # Check if already selected
+                    is_selected = any(
+                        e["name"] == error_name and e["category"] == category
+                        for e in st.session_state.selected_specific_errors
+                    )
+                    
+                    # Add select button
+                    col1, col2 = st.columns([5, 1])
+                    with col1:
+                        st.markdown(f"**{error_name}**")
+                        st.markdown(f"*{description}*")
+                    with col2:
+                        if not is_selected:
+                            if st.button("Select", key=f"java_{category}_{error_name}"):
+                                st.session_state.selected_specific_errors.append({
+                                    "type": "java_error",
+                                    "category": category,
+                                    "name": error_name,
+                                    "description": description,
+                                    "implementation_guide": error.get("implementation_guide", "")
+                                })
+                                st.rerun()
+                        else:
+                            st.success("Selected")
+                    
+                    st.markdown("---")
+        
         # Show selected errors
         st.subheader("Selected Issues")
         
@@ -354,7 +210,7 @@ class ErrorSelectorUI:
             for idx, error in enumerate(st.session_state.selected_specific_errors):
                 col1, col2 = st.columns([5, 1])
                 with col1:
-                    st.markdown(f"**{error['type']} - {error['name']}**")
+                    st.markdown(f"**{error['category']} - {error['name']}**")
                     st.markdown(f"*{error['description']}*")
                 with col2:
                     if st.button("Remove", key=f"remove_{idx}"):
@@ -453,9 +309,6 @@ class ErrorSelectorUI:
         # Update session state for consistency
         st.session_state.difficulty_level = difficulty_level.capitalize()
         st.session_state.code_length = code_length.capitalize()
-        
-        # Debug output
-        logger.info(f"Auto-set parameters based on user level '{normalized_level}': difficulty={difficulty_level}, length={code_length}")
         
         return {
             "difficulty_level": difficulty_level,

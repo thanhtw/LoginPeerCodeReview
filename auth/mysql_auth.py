@@ -167,11 +167,11 @@ class MySQLAuthManager:
     
     def update_review_stats(self, user_id: str, accuracy: float, score: int = 0) -> Dict[str, Any]:
         """Update a user's review statistics with score."""
-        logger.info(f"MySQLAuthManager: Updating stats for user {user_id}: accuracy={accuracy:.1f}%, score={score}")
+        #logger.info(f"MySQLAuthManager: Updating stats for user {user_id}: accuracy={accuracy:.1f}%, score={score}")
         
         # Validate connection
         if not self.db:
-            logger.error("Database connection not initialized")
+            #logger.error("Database connection not initialized")
             return {"success": False, "error": "Database connection not initialized"}
         
         # Get current stats
@@ -181,15 +181,15 @@ class MySQLAuthManager:
             WHERE uid = %s
         """
         
-        logger.info(f"Executing query to get current stats for user {user_id}")
+        #logger.info(f"Executing query to get current stats for user {user_id}")
         result = self.db.execute_query(query, (user_id,), fetch_one=True)
         
         if not result:
-            logger.error(f"User {user_id} not found in database")
+            #logger.error(f"User {user_id} not found in database")
             return {"success": False, "error": "User not found"}
         
         # Log retrieved values
-        logger.info(f"Retrieved current stats: {result}")
+        #logger.info(f"Retrieved current stats: {result}")
         
         # Calculate new stats
         current_reviews = result["reviews_completed"]
@@ -198,8 +198,8 @@ class MySQLAuthManager:
         new_reviews = current_reviews + 1
         new_score = current_score + score
         
-        logger.info(f"Calculated new stats: reviews {current_reviews} -> {new_reviews}, " + 
-                f"score {current_score} -> {new_score} (added {score} points)")
+        #logger.info(f"Calculated new stats: reviews {current_reviews} -> {new_reviews}, " + 
+        #        f"score {current_score} -> {new_score} (added {score} points)")
         
         # Update the database
         update_query = """
@@ -208,13 +208,13 @@ class MySQLAuthManager:
             WHERE uid = %s
         """
         
-        logger.info(f"Executing update query with params: ({new_reviews}, {new_score}, {user_id})")
+        #logger.info(f"Executing update query with params: ({new_reviews}, {new_score}, {user_id})")
         affected_rows = self.db.execute_query(
             update_query, 
             (new_reviews, new_score, user_id)
         )
         
-        logger.info(f"Database update affected rows: {affected_rows}")
+        #logger.info(f"Database update affected rows: {affected_rows}")
         
         if affected_rows is not None and affected_rows >= 0:
             return {
@@ -223,7 +223,7 @@ class MySQLAuthManager:
                 "score": new_score
             }
         else:
-            logger.error("Database update failed or returned None")
+            #logger.error("Database update failed or returned None")
             return {"success": False, "error": "Error updating review stats"}
     
     def get_all_users(self) -> List[Dict[str, Any]]:

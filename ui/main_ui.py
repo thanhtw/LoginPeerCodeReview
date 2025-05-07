@@ -237,18 +237,6 @@ def render_sidebar(llm_manager, workflow):
         workflow: JavaCodeReviewGraph workflow
     """
     with st.sidebar:
-        st.title("Java Review Trainer")
-        
-        # Application info
-        st.subheader("About")
-        st.markdown("""
-        This application helps you learn and practice Java code review skills
-        by generating code with intentional errors for you to identify.
-        """)
-        
-        # Add separator
-        st.markdown("---")
-        
         # LLM Provider info
         st.subheader("LLM Provider")
         provider = llm_manager.provider.capitalize()

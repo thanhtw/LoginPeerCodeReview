@@ -23,26 +23,21 @@ class JsonErrorRepository:
     Repository for accessing Java error data directly from JSON files.
     
     This class handles loading, categorizing, and providing access to
-    error data from build_errors.json and checkstyle_error.json files.
+    error data from Java_code_review_errors.json file.
     """
     
-    def __init__(self, build_errors_path: str = "build_errors.json",
-                checkstyle_errors_path: str = "checkstyle_error.json"):
+    def __init__(self, java_errors_path: str = "Java_code_review_errors.json"):
         """
         Initialize the JSON Error Repository.
         
         Args:
-            build_errors_path: Path to the build errors JSON file
-            checkstyle_errors_path: Path to the code quality errors JSON file
+            java_errors_path: Path to the Java code review errors JSON file
         """
-        self.build_errors_path = build_errors_path
-        self.checkstyle_errors_path = checkstyle_errors_path
+        self.java_errors_path = java_errors_path
         
         # Initialize data
-        self.build_errors = {}
-        self.checkstyle_errors = {}
-        self.build_categories = []
-        self.checkstyle_categories = []
+        self.java_errors = {}
+        self.java_error_categories = []
         
         # Load error data from JSON files
         self.load_error_data()
@@ -52,63 +47,35 @@ class JsonErrorRepository:
         Load error data from JSON files.
         
         Returns:
-            True if both files are loaded successfully, False otherwise
+            True if files are loaded successfully, False otherwise
         """
-        build_loaded = self._load_build_errors()
-        checkstyle_loaded = self._load_checkstyle_errors()
-        
-        return build_loaded and checkstyle_loaded
+        java_loaded = self._load_java_errors()
+        return java_loaded
     
-    def _load_build_errors(self) -> bool:
+    def _load_java_errors(self) -> bool:
         """
-        Load build errors from JSON file.
+        Load Java errors from JSON file.
         
         Returns:
             True if file is loaded successfully, False otherwise
         """
         try:
-            # Try different paths to find the build errors file
-            file_paths = self._get_potential_file_paths(self.build_errors_path)
+            # Try different paths to find the Java errors file
+            file_paths = self._get_potential_file_paths(self.java_errors_path)
             
             for file_path in file_paths:
                 if os.path.exists(file_path):
                     with open(file_path, 'r') as file:
-                        self.build_errors = json.load(file)
-                        self.build_categories = list(self.build_errors.keys())
-                        #logger.info(f"Loaded build errors from {file_path} with {len(self.build_categories)} categories")
+                        self.java_errors = json.load(file)
+                        self.java_error_categories = list(self.java_errors.keys())
+                        logger.info(f"Loaded Java errors from {file_path} with {len(self.java_error_categories)} categories")
                         return True
             
-            logger.warning(f"Could not find build errors file: {self.build_errors_path}")
+            logger.warning(f"Could not find Java errors file: {self.java_errors_path}")
             return False
             
         except Exception as e:
-            logger.error(f"Error loading build errors: {str(e)}")
-            return False
-    
-    def _load_checkstyle_errors(self) -> bool:
-        """
-        Load code quality errors from JSON file.
-        
-        Returns:
-            True if file is loaded successfully, False otherwise
-        """
-        try:
-            # Try different paths to find the code quality errors file
-            file_paths = self._get_potential_file_paths(self.checkstyle_errors_path)
-            
-            for file_path in file_paths:
-                if os.path.exists(file_path):
-                    with open(file_path, 'r') as file:
-                        self.checkstyle_errors = json.load(file)
-                        self.checkstyle_categories = list(self.checkstyle_errors.keys())
-                        #logger.info(f"Loaded code quality errors from {file_path} with {len(self.checkstyle_categories)} categories")
-                        return True
-            
-            logger.warning(f"Could not find code quality errors file: {self.checkstyle_errors_path}")
-            return False
-            
-        except Exception as e:
-            logger.error(f"Error loading code quality errors: {str(e)}")
+            logger.error(f"Error loading Java errors: {str(e)}")
             return False
     
     def _get_potential_file_paths(self, file_name: str) -> List[str]:
@@ -142,28 +109,24 @@ class JsonErrorRepository:
         Get all error categories.
         
         Returns:
-            Dictionary with 'build' and 'checkstyle' categories
+            Dictionary with 'java_errors' categories
         """
         return {
-            "build": self.build_categories,
-            "checkstyle": self.checkstyle_categories
+            "java_errors": self.java_error_categories
         }
     
-    def get_category_errors(self, category_type: str, category_name: str) -> List[Dict[str, str]]:
+    def get_category_errors(self, category_name: str) -> List[Dict[str, str]]:
         """
         Get errors for a specific category.
         
         Args:
-            category_type: Type of category ('build' or 'checkstyle')
             category_name: Name of the category
             
         Returns:
             List of error dictionaries for the category
         """
-        if category_type == "build" and category_name in self.build_errors:
-            return self.build_errors[category_name]
-        elif category_type == "checkstyle" and category_name in self.checkstyle_errors:
-            return self.checkstyle_errors[category_name]
+        if category_name in self.java_errors:
+            return self.java_errors[category_name]
         return []
     
     def get_errors_by_categories(self, selected_categories: Dict[str, List[str]]) -> Dict[str, List[Dict[str, str]]]:
@@ -171,28 +134,21 @@ class JsonErrorRepository:
         Get errors for selected categories.
         
         Args:
-            selected_categories: Dictionary with 'build' and 'checkstyle' keys,
-                               each containing a list of selected categories
+            selected_categories: Dictionary with 'java_errors' key
+                              containing a list of selected categories
             
         Returns:
             Dictionary with selected errors by category type
         """
         selected_errors = {
-            "build": [],
-            "checkstyle": []
+            "java_errors": []
         }
         
-        # Get build errors
-        if "build" in selected_categories:
-            for category in selected_categories["build"]:
-                if category in self.build_errors:
-                    selected_errors["build"].extend(self.build_errors[category])
-        
-        # Get code quality errors
-        if "checkstyle" in selected_categories:
-            for category in selected_categories["checkstyle"]:
-                if category in self.checkstyle_errors:
-                    selected_errors["checkstyle"].extend(self.checkstyle_errors[category])
+        # Get Java errors
+        if "java_errors" in selected_categories:
+            for category in selected_categories["java_errors"]:
+                if category in self.java_errors:
+                    selected_errors["java_errors"].extend(self.java_errors[category])
         
         return selected_errors
     
@@ -201,21 +157,16 @@ class JsonErrorRepository:
         Get details for a specific error.
         
         Args:
-            error_type: Type of error ('build' or 'checkstyle')
+            error_type: Type of error ('java_error')
             error_name: Name of the error
             
         Returns:
             Error details dictionary or None if not found
         """
-        if error_type == "build":
-            for category in self.build_errors:
-                for error in self.build_errors[category]:
+        if error_type == "java_error":
+            for category in self.java_errors:
+                for error in self.java_errors[category]:
                     if error.get("error_name") == error_name:
-                        return error
-        elif error_type == "checkstyle":
-            for category in self.checkstyle_errors:
-                for error in self.checkstyle_errors[category]:
-                    if error.get("check_name") == error_name:
                         return error
         return None
     
@@ -225,37 +176,24 @@ class JsonErrorRepository:
         Get random errors from selected categories.
         
         Args:
-            selected_categories: Dictionary with 'build' and 'checkstyle' keys,
-                            each containing a list of selected categories
+            selected_categories: Dictionary with 'java_errors' key
+                            containing a list of selected categories
             count: Number of errors to select
             
         Returns:
             List of selected errors with type and category information
         """
         all_errors = []
-        build_categories = selected_categories.get("build", [])
-        checkstyle_categories = selected_categories.get("checkstyle", [])
+        java_error_categories = selected_categories.get("java_errors", [])
         
-        # Build errors
-        for category in build_categories:
-            if category in self.build_errors:
-                for error in self.build_errors[category]:
+        # Java errors
+        for category in java_error_categories:
+            if category in self.java_errors:
+                for error in self.java_errors[category]:
                     all_errors.append({
-                        "type": "build",
+                        "type": "java_error",
                         "category": category,
                         "name": error["error_name"],
-                        "description": error["description"],
-                        "implementation_guide": error.get("implementation_guide", "")
-                    })
-        
-        # code quality errors
-        for category in checkstyle_categories:
-            if category in self.checkstyle_errors:
-                for error in self.checkstyle_errors[category]:
-                    all_errors.append({
-                        "type": "checkstyle",
-                        "category": category,
-                        "name": error["check_name"],
                         "description": error["description"],
                         "implementation_guide": error.get("implementation_guide", "")
                     })
@@ -297,7 +235,7 @@ class JsonErrorRepository:
         }
         adjusted_count = error_counts.get(difficulty.lower(), count)
         
-        # Enhanced debugging
+        # Debug info
         print("\n========== GET_ERRORS_FOR_LLM ==========")
         print(f"Difficulty: {difficulty}")
         print(f"Original count: {count}, Adjusted count: {adjusted_count}")
@@ -325,10 +263,7 @@ class JsonErrorRepository:
                     processed_error["implementation_guide"] = implementation_guide
                 
                 # Create problem description
-                if error_type.lower() == "build":
-                    problem_descriptions.append(f"Build Error - {name}: {description} (Category: {category})")
-                else:  # checkstyle
-                    problem_descriptions.append(f"Checkstyle Error - {name}: {description} (Category: {category})")
+                problem_descriptions.append(f"Java Error - {name}: {description} (Category: {category})")
                 
                 selected_errors.append(processed_error)
             
@@ -344,55 +279,34 @@ class JsonErrorRepository:
             print(f"Selected Categories: {selected_categories}")
             
             # Check if any categories are actually selected
-            build_categories = selected_categories.get("build", [])
-            checkstyle_categories = selected_categories.get("checkstyle", [])
+            java_error_categories = selected_categories.get("java_errors", [])
             
-            print(f"Build Categories: {build_categories}")
-            print(f"Checkstyle Categories: {checkstyle_categories}")
+            print(f"Java Error Categories: {java_error_categories}")
             
-            if not build_categories and not checkstyle_categories:
+            if not java_error_categories:
                 # Use default categories if none specified
                 print("WARNING: No categories specified, using defaults")
                 selected_categories = {
-                    "build": ["CompileTimeErrors", "RuntimeErrors", "LogicalErrors"],
-                    "checkstyle": ["NamingConventionChecks", "WhitespaceAndFormattingChecks"]
+                    "java_errors": ["LogicalErrors", "SyntaxErrors", "CodeQualityErrors"]
                 }
             
             # Collect errors from each selected category
             all_errors = []
             
-            # Build errors - randomly select from each category
-            for category in selected_categories.get("build", []):
-                if category in self.build_errors:
-                    category_errors = self.build_errors[category]
+            # Java errors - randomly select from each category
+            for category in selected_categories.get("java_errors", []):
+                if category in self.java_errors:
+                    category_errors = self.java_errors[category]
                     # For each selected category, randomly select 1-2 errors
                     num_to_select = min(len(category_errors), random.randint(1, 2))
                     if num_to_select > 0:
                         selected_from_category = random.sample(category_errors, num_to_select)
-                        print(f"Selected {num_to_select} errors from build category '{category}'")
+                        print(f"Selected {num_to_select} errors from Java error category '{category}'")
                         for error in selected_from_category:
                             all_errors.append({
-                                "type": "build",
+                                "type": "java_error",
                                 "category": category,
                                 "name": error["error_name"],
-                                "description": error["description"],
-                                "implementation_guide": error.get("implementation_guide", "")
-                            })
-            
-            # code quality errors - randomly select from each category
-            for category in selected_categories.get("checkstyle", []):
-                if category in self.checkstyle_errors:
-                    category_errors = self.checkstyle_errors[category]
-                    # For each selected category, randomly select 1-2 errors
-                    num_to_select = min(len(category_errors), random.randint(1, 2))
-                    if num_to_select > 0:
-                        selected_from_category = random.sample(category_errors, num_to_select)
-                        print(f"Selected {num_to_select} errors from checkstyle category '{category}'")
-                        for error in selected_from_category:
-                            all_errors.append({
-                                "type": "checkstyle",
-                                "category": category,
-                                "name": error["check_name"],
                                 "description": error["description"],
                                 "implementation_guide": error.get("implementation_guide", "")
                             })
@@ -413,10 +327,7 @@ class JsonErrorRepository:
                 description = error.get("description", "")
                 category = error.get("category", "")
                 
-                if error_type.lower() == "build":
-                    problem_descriptions.append(f"Build Error - {name}: {description} (Category: {category})")
-                else:  # checkstyle
-                    problem_descriptions.append(f"Checkstyle Error - {name}: {description} (Category: {category})")
+                problem_descriptions.append(f"Java Error - {name}: {description} (Category: {category})")
             
             # Print final selected errors
             print("\n--- FINAL SELECTED ERRORS ---")
@@ -435,22 +346,17 @@ class JsonErrorRepository:
         Get implementation guide for a specific error.
         
         Args:
-            error_type: Type of error ('build' or 'checkstyle')
+            error_type: Type of error
             error_name: Name of the error
             category: Category of the error
             
         Returns:
             Implementation guide string or None if not found
         """
-        if error_type == "build":
-            if category in self.build_errors:
-                for error in self.build_errors[category]:
+        if error_type == "java_error":
+            if category in self.java_errors:
+                for error in self.java_errors[category]:
                     if error.get("error_name") == error_name:
-                        return error.get("implementation_guide")
-        elif error_type == "checkstyle":
-            if category in self.checkstyle_errors:
-                for error in self.checkstyle_errors[category]:
-                    if error.get("check_name") == error_name:
                         return error.get("implementation_guide")
         return None
 
@@ -467,31 +373,17 @@ class JsonErrorRepository:
         results = []
         search_term = search_term.lower()
         
-        # Search build errors
-        for category in self.build_errors:
-            for error in self.build_errors[category]:
+        # Search java errors
+        for category in self.java_errors:
+            for error in self.java_errors[category]:
                 name = error.get("error_name", "").lower()
                 description = error.get("description", "").lower()
                 
                 if search_term in name or search_term in description:
                     results.append({
-                        "type": "build",
+                        "type": "java_error",
                         "category": category,
                         "name": error["error_name"],
-                        "description": error["description"]
-                    })
-        
-        # Search code quality errors
-        for category in self.checkstyle_errors:
-            for error in self.checkstyle_errors[category]:
-                name = error.get("check_name", "").lower()
-                description = error.get("description", "").lower()
-                
-                if search_term in name or search_term in description:
-                    results.append({
-                        "type": "checkstyle",
-                        "category": category,
-                        "name": error["check_name"],
                         "description": error["description"]
                     })
         
@@ -502,30 +394,20 @@ class JsonErrorRepository:
         Get a specific error by name.
         
         Args:
-            error_type: Type of error ('build' or 'checkstyle')
+            error_type: Type of error ('java_error')
             error_name: Name of the error
             
         Returns:
             Error dictionary with added type and category, or None if not found
         """
-        if error_type == "build":
-            for category, errors in self.build_errors.items():
+        if error_type == "java_error":
+            for category, errors in self.java_errors.items():
                 for error in errors:
                     if error.get("error_name") == error_name:
                         return {
-                            "type": "build",
+                            "type": "java_error",
                             "category": category,
                             "name": error["error_name"],
-                            "description": error["description"]
-                        }
-        elif error_type == "checkstyle":
-            for category, errors in self.checkstyle_errors.items():
-                for error in errors:
-                    if error.get("check_name") == error_name:
-                        return {
-                            "type": "checkstyle",
-                            "category": category,
-                            "name": error["check_name"],
                             "description": error["description"]
                         }
         return None

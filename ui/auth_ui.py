@@ -161,6 +161,8 @@ class AuthUI:
         user_info = st.session_state.auth.get("user_info", {})
         display_name = user_info.get("display_name", "User")
         level = user_info.get("level", "basic").capitalize()
+
+        st.sidebar.title("Java Review Trainer")
         
         # Display user info       
         st.sidebar.markdown(f"**Hi:** {display_name} - **Your level**: {level}")
@@ -178,16 +180,12 @@ class AuthUI:
             except Exception as e:
                 logger.error(f"Error getting user profile: {str(e)}")
         
-        # Add logout button
-        # if st.sidebar.button("Logout"):
-        #     # Clear authentication state
-        #     st.session_state.auth = {
-        #         "is_authenticated": False,
-        #         "user_id": None,
-        #         "user_info": {}
-        #     }
-        #     # Force UI refresh
-        #     st.rerun()
+        # Application info
+        st.sidebar.subheader("About")
+        st.sidebar.markdown("""
+        This application helps you learn and practice Java code review skills
+        by generating code with intentional errors for you to identify.
+        """)
     
     def update_review_stats(self, accuracy: float, score: int = 0):
         """

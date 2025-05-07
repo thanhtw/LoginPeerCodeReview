@@ -1,5 +1,5 @@
 {
-    "Logical": [
+    "LogicalErrors": [
       {
         "error_name": "Off-by-one error",
         "description": "An iteration error where a loop iterates one time too many or too few, often in array indexing or boundary conditions.",
@@ -61,7 +61,7 @@
         "implementation_guide": "Write expressions without parentheses where the order of operations matters: 'a + b * c' expecting (a + b) * c."
       }
     ],
-    "Syntax": [
+    "SyntaxErrors": [
       {
         "error_name": "Missing semicolons",
         "description": "Forgetting to terminate statements with semicolons, causing compilation errors.",
@@ -103,7 +103,7 @@
         "implementation_guide": "Use conflicting modifiers: 'private public void method()' or 'final abstract class MyClass'."
       }
     ],
-    "Code Quality": [
+    "CodeQualityErrors": [
       {
         "error_name": "Magic numbers",
         "description": "Using literal numbers in code instead of named constants, reducing readability and maintainability.",
@@ -165,7 +165,7 @@
         "implementation_guide": "Manually close resources with finally blocks instead of using try-with-resources: 'try { FileReader fr = new FileReader(file); ... } finally { fr.close(); }'"
       }
     ],
-    "Standard Violation": [
+    "StandardsViolations": [
       {
         "error_name": "Inconsistent naming conventions",
         "description": "Not following standard Java naming conventions for classes, methods, variables, and constants.",
@@ -207,7 +207,49 @@
         "implementation_guide": "Add @SuppressWarnings annotations without comments explaining why the warning is being suppressed."
       }
     ],
-    "Java Specific": [
+    "ErrorHandlingProblems": [
+      {
+        "error_name": "Catching generic exceptions",
+        "description": "Catching Exception or Throwable instead of specific exception types, making error handling too broad.",
+        "implementation_guide": "Use catch(Exception e) or catch(Throwable t) instead of catching specific exceptions relevant to the operation."
+      },
+      {
+        "error_name": "Empty catch blocks",
+        "description": "Catching exceptions but not handling them, effectively hiding errors.",
+        "implementation_guide": "Create empty catch blocks: 'try { riskyOperation(); } catch (Exception e) { }' without any error handling."
+      },
+      {
+        "error_name": "Throwing generic exceptions",
+        "description": "Throwing Exception or RuntimeException instead of specific, meaningful exception types.",
+        "implementation_guide": "Throw generic exceptions: 'throw new RuntimeException(\"Error\");' instead of a more specific exception type."
+      },
+      {
+        "error_name": "Inadequate error messages",
+        "description": "Exception messages that don't provide useful information for troubleshooting.",
+        "implementation_guide": "Create exceptions with uninformative messages: 'throw new IllegalArgumentException(\"Invalid\");' instead of explaining what was invalid and why."
+      },
+      {
+        "error_name": "Not preserving stack traces",
+        "description": "Catching and rethrowing exceptions without maintaining the original stack trace.",
+        "implementation_guide": "Catch and rethrow exceptions losing the stack trace: 'catch(Exception e) { throw new RuntimeException(\"Error occurred\"); }' instead of using the cause parameter."
+      },
+      {
+        "error_name": "Ignoring checked exceptions",
+        "description": "Converting checked exceptions to runtime exceptions without proper handling or documentation.",
+        "implementation_guide": "Wrap checked exceptions in RuntimeException without adding value: 'try { ... } catch (IOException e) { throw new RuntimeException(e); }' without handling or logging."
+      },
+      {
+        "error_name": "Excessive try-catch blocks",
+        "description": "Using too many small try-catch blocks instead of larger, more contextual exception handling.",
+        "implementation_guide": "Surround every statement with its own try-catch block instead of having a single try-catch with appropriate context."
+      },
+      {
+        "error_name": "Not using custom exceptions",
+        "description": "Using standard exceptions when domain-specific custom exceptions would be more appropriate.",
+        "implementation_guide": "Throw generic IllegalArgumentException for domain-specific errors instead of creating and using custom exception types."
+      }
+    ],
+    "JavaSpecificErrors": [
       {
         "error_name": "Raw type usage",
         "description": "Using raw types instead of parameterized types, bypassing generic type safety.",
@@ -247,6 +289,48 @@
         "error_name": "Not using @Override annotation",
         "description": "Omitting @Override annotation when overriding methods, losing compiler validation.",
         "implementation_guide": "Override methods from superclasses or interfaces without using the @Override annotation."
+      }
+    ],
+    "PerformanceErrors": [
+      {
+        "error_name": "Inefficient string concatenation",
+        "description": "Using string concatenation in loops with + operator instead of StringBuilder.",
+        "implementation_guide": "Concatenate strings in a loop: 'String result = \"\"; for(int i=0; i<1000; i++) { result += i; }' instead of using StringBuilder."
+      },
+      {
+        "error_name": "Unnecessary object creation",
+        "description": "Creating objects when they're not needed, increasing garbage collection pressure.",
+        "implementation_guide": "Create new objects inside loops when they could be reused, or use 'new Integer(5)' instead of Integer.valueOf(5)."
+      },
+      {
+        "error_name": "Inefficient collection iteration",
+        "description": "Using inefficient access patterns for collections, such as repeated get() calls on LinkedList.",
+        "implementation_guide": "Access LinkedList elements by index in a loop: 'for(int i=0; i<list.size(); i++) { item = list.get(i); }' instead of using iterators."
+      },
+      {
+        "error_name": "Not using appropriate collections",
+        "description": "Choosing collections that don't match the usage pattern, leading to performance degradation.",
+        "implementation_guide": "Use ArrayList for frequent random access, LinkedList for frequent insertions/deletions, or HashMap for fast lookups based on usage patterns."
+      },
+      {
+        "error_name": "Excessive synchronization",
+        "description": "Using synchronized blocks or methods when not necessary, or making them too broad in scope.",
+        "implementation_guide": "Synchronize entire methods when only a small portion needs synchronization, or use synchronized where concurrent collections would be better."
+      },
+      {
+        "error_name": "Inefficient regular expressions",
+        "description": "Using inefficient regular expressions or recompiling the same pattern repeatedly.",
+        "implementation_guide": "Recompile the same regex pattern in a loop: 'for(String s : strings) { s.matches(\"[a-z]+\"); }' instead of compiling once and reusing."
+      },
+      {
+        "error_name": "Not using buffered I/O",
+        "description": "Using unbuffered I/O operations, leading to many small system calls instead of fewer larger ones.",
+        "implementation_guide": "Use FileReader/FileWriter directly instead of wrapping them with BufferedReader/BufferedWriter."
+      },
+      {
+        "error_name": "Eager initialization of resources",
+        "description": "Loading resources or initializing expensive objects before they're needed, wasting memory and startup time.",
+        "implementation_guide": "Initialize all possible resources at application startup instead of using lazy loading or on-demand initialization."
       }
     ]
   }

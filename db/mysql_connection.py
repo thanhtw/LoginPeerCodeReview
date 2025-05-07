@@ -55,7 +55,7 @@ class MySQLConnection:
         try:
             if self.connection is None or not self.connection.is_connected():
                 # Log connection attempt
-                logger.info(f"Connecting to MySQL: {self.db_user}@{self.db_host}:{self.db_port}/{self.db_name}")
+                #logger.info(f"Connecting to MySQL: {self.db_user}@{self.db_host}:{self.db_port}/{self.db_name}")
                 
                 # Add authentication_plugin parameter for compatibility
                 self.connection = mysql.connector.connect(
@@ -140,7 +140,7 @@ class MySQLConnection:
                 # Log query with parameters
                 if params:
                     param_str = str(params)
-                    logger.info(f"Executing query: {query} with params: {param_str}")
+                    #logger.info(f"Executing query: {query} with params: {param_str}")
                 else:
                     logger.info(f"Executing query: {query}")
                 
@@ -157,12 +157,12 @@ class MySQLConnection:
                     connection.commit()
                     affected_rows = cursor.rowcount
                     cursor.close()
-                    logger.info(f"Query executed successfully. Affected rows: {affected_rows}")
+                    #logger.info(f"Query executed successfully. Affected rows: {affected_rows}")
                     return affected_rows
             except mysql.connector.Error as e:
-                logger.error(f"Error executing query: {str(e)}")
-                logger.error(f"Query: {query}")
-                logger.error(f"Params: {params}")
+                #logger.error(f"Error executing query: {str(e)}")
+                #logger.error(f"Query: {query}")
+                #logger.error(f"Params: {params}")
                 logger.error(traceback.format_exc())
                 
                 # Check for connection-related errors to retry
@@ -180,5 +180,5 @@ class MySQLConnection:
                     return None
             except Exception as e:
                 logger.error(f"Unexpected error executing query: {str(e)}")
-                logger.error(traceback.format_exc())
+                #logger.error(traceback.format_exc())
                 return None

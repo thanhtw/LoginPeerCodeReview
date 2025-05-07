@@ -213,13 +213,7 @@ class LLMManager:
         Returns:
             Optional[BaseLanguageModel]: Initialized LLM or None if initialization fails
         """
-        # Create a unique key for caching based on model name, provider, and params
-        # cache_key = f"{self.provider}_{model_name}"
-        
-        # if cache_key in self.initialized_models:
-        #     logger.info(f"Using cached model: {cache_key}")
-        #     return self.initialized_models[cache_key]
-        
+       
         # Use the appropriate initialization method based on the provider
         if self.provider == "ollama":
             model = self._initialize_ollama_model(model_name, model_params)
