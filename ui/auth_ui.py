@@ -11,6 +11,7 @@ from typing import Dict, Any, Optional, Callable
 
 # Import LocalAuthManager for authentication
 from auth.local_auth import LocalAuthManager
+from auth.mysql_auth import MySQLAuthManager
 
 # Configure logging
 logging.basicConfig(
@@ -29,7 +30,7 @@ class AuthUI:
     
     def __init__(self):
         """Initialize the AuthUI component with local auth manager."""
-        self.auth_manager = LocalAuthManager()
+        self.auth_manager = MySQLAuthManager()
         
         # Initialize session state for authentication
         if "auth" not in st.session_state:
@@ -206,7 +207,14 @@ class AuthUI:
             
         # Update stats in the database
         user_id = st.session_state.auth.get("user_id")
-        self.auth_manager.update_review_stats(user_id, accuracy)
+        result = self.auth_manager.update_review_stats(user_id, accuracy)
+
+        if result.get("success", False):
+            logger.info(f"Updated review stats for user {user_id}: accuracy={accuracy:.1f}%, " +
+                       f"total reviews={result.get('reviews_completed')}, " +
+                       f"average accuracy={result.get('average_accuracy'):.1f}%")
+        else:
+            logger.error(f"Failed to update review stats: {result.get('error', 'Unknown error')}")
     
     def is_authenticated(self) -> bool:
         """

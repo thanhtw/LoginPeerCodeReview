@@ -446,16 +446,7 @@ class ErrorSelectorUI:
         """
         Get code generation parameters automatically based on user level
         without displaying UI controls.
-        
-        Args:
-            user_level: User's experience level (basic, medium, senior)
-            
-        Returns:
-            Dictionary with code generation parameters
         """
-        # Print input for debugging
-        print(f"Setting parameters for user level: '{user_level}'")
-        
         # Normalize the user level to lowercase and default to medium if None
         normalized_level = user_level.lower() if user_level else "medium"
         
@@ -480,7 +471,6 @@ class ErrorSelectorUI:
         st.session_state.code_length = code_length.capitalize()
         
         # Debug output
-        print(f"Mapped user level '{normalized_level}' to difficulty '{difficulty_level}' and length '{code_length}'")
         logger.info(f"Auto-set parameters based on user level '{normalized_level}': difficulty={difficulty_level}, length={code_length}")
         
         return {
