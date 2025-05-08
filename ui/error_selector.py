@@ -58,6 +58,7 @@ class ErrorSelectorUI:
         """
         Render the error category selection UI for advanced mode with enhanced styling and layout.
         Each error category from Java_code_review_errors.json is displayed as a visually distinct card.
+        Works with both English and Traditional Chinese.
         
         Args:
             all_categories: Dictionary with 'java_errors' categories
@@ -105,22 +106,43 @@ class ErrorSelectorUI:
             "Java Specific": {
                 "icon": "☕",
                 "description": t("java_specific_desc")
+            },
+            # Chinese category mappings
+            "邏輯錯誤": {
+                "icon": "🧠",
+                "description": t("logical_desc")
+            },
+            "語法錯誤": {
+                "icon": "🔍",
+                "description": t("syntax_desc")
+            },
+            "程式碼品質": {
+                "icon": "✨",
+                "description": t("code_quality_desc")
+            },
+            "標準違規": {
+                "icon": "📏",
+                "description": t("standard_violation_desc")
+            },
+            "Java 特定錯誤": {
+                "icon": "☕",
+                "description": t("java_specific_desc")
             }
         }
         
         # Generate cards for each category
-        for category in java_error_categories:
-            # Create a unique key for this category
-            category_key = f"java_{category}"
+        for i, category in enumerate(java_error_categories):
+            # Create a unique and safe key for this category
+            category_key = f"java_category_{i}"
             
             # Check if category is already selected from session state
             is_selected = category in current_selections
             
-            # Get icon and description
+            # Get icon and description - fallback to defaults if not found
             icon = category_info.get(category, {}).get("icon", "📁")
             description = category_info.get(category, {}).get("description", t("error_category"))
             
-            # Get translated category name
+            # Get translated category name - if it's already in the correct language, this will just return the original
             category_name = t(category.lower()) if category.lower() in ["logical", "syntax", "code_quality", "standard_violation", "java_specific"] else category
             
             # Create a card with toggle effect for each category
@@ -138,8 +160,9 @@ class ErrorSelectorUI:
             """, unsafe_allow_html=True)
             
             # Hidden checkbox to track state (will be clicked by the card's onclick handler)
+            # Use index-based unique keys instead of category text
             selected = st.checkbox(
-                category,
+                f"Category {i}",  # Just a label, won't be displayed
                 key=category_key,
                 value=is_selected,
                 label_visibility="collapsed"  # Hide the actual checkbox
@@ -163,11 +186,13 @@ class ErrorSelectorUI:
         else:
             # Display selected categories with visual enhancements
             st.markdown('<div class="selected-categories">', unsafe_allow_html=True)
-            for category in current_selections:
+            for i, category in enumerate(current_selections):
                 icon = category_info.get(category, {}).get("icon", "📁")
                 category_name = t(category.lower()) if category.lower() in ["logical", "syntax", "code_quality", "standard_violation", "java_specific"] else category
+                
+                # Use index-based unique identifier for each category display
                 st.markdown(f"""
-                <div class="selected-category-item">
+                <div class="selected-category-item" id="selected_category_{i}">
                     <span class="category-icon">{icon}</span>
                     <span class="category-name">{category_name}</span>
                 </div>
@@ -196,15 +221,14 @@ class ErrorSelectorUI:
         all_categories = error_repository.get_all_categories()
         java_error_categories = all_categories.get("java_errors", [])
         
-        # Translate category names
-        # translated_categories = []
-        # for category in java_error_categories:
-        #     translated_category = t(category.lower()) if category.lower() in ["logical", "syntax", "code_quality", "standard_violation", "java_specific"] else category
-        #     translated_categories.append(translated_category)
-        
         # Container for selected errors
         if "selected_specific_errors" not in st.session_state:
             st.session_state.selected_specific_errors = []
+            
+        # Check if there are any categories to display
+        if not java_error_categories:
+            st.warning("No error categories found. Please check that the error repository is properly configured.")
+            return st.session_state.selected_specific_errors
             
         # Create tabs for each error category
         error_tabs = st.tabs(java_error_categories)
@@ -219,7 +243,8 @@ class ErrorSelectorUI:
                     continue
                     
                 # Display each error with a select button
-                for error in errors:
+                for j, error in enumerate(errors):
+                    # Handle potential missing field names
                     error_name = error.get("error_name", "Unknown")
                     description = error.get("description", "")
                     
@@ -229,14 +254,16 @@ class ErrorSelectorUI:
                         for e in st.session_state.selected_specific_errors
                     )
                     
-                    # Add select button
+                    # Add select button with an index to ensure unique keys
                     col1, col2 = st.columns([5, 1])
                     with col1:
                         st.markdown(f"**{error_name}**")
                         st.markdown(f"*{description}*")
                     with col2:
                         if not is_selected:
-                            if st.button(t("select"), key=f"java_{category}_{error_name}"):
+                            # Add indices to ensure key uniqueness
+                            unique_key = f"select_{i}_{j}_{category}"
+                            if st.button(t("select"), key=unique_key):
                                 st.session_state.selected_specific_errors.append({
                                     "type": "java_error",
                                     "category": category,
@@ -246,6 +273,7 @@ class ErrorSelectorUI:
                                 })
                                 st.rerun()
                         else:
+                            # Just display "Selected" text without a button
                             st.success(t("selected"))
                     
                     st.markdown("---")
@@ -262,7 +290,9 @@ class ErrorSelectorUI:
                     st.markdown(f"**{error['category']} - {error['name']}**")
                     st.markdown(f"*{error['description']}*")
                 with col2:
-                    if st.button(t("remove"), key=f"remove_{idx}"):
+                    # Use numerical index only to avoid potential issues with Chinese characters in keys
+                    remove_key = f"remove_{idx}"
+                    if st.button(t("remove"), key=remove_key):
                         st.session_state.selected_specific_errors.pop(idx)
                         st.rerun()
         

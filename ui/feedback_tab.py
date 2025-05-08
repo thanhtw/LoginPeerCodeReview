@@ -10,6 +10,7 @@ import time
 import traceback
 from typing import Dict, List, Any, Optional, Callable
 from utils.code_utils import generate_comparison_report
+from utils.language_utils import t, get_current_language
 
 # Configure logging
 logging.basicConfig(
@@ -60,13 +61,8 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
 
     # Block access if review not completed
     if not review_completed:
-        st.warning("Please complete all review attempts before accessing feedback.")
-        st.info(f"Current progress: {state.current_iteration-1}/{state.max_iterations} attempts completed")
-        
-        # Add button to go back to review tab
-        if st.button("Go to Review Tab"):
-            st.session_state.active_tab = 1
-            st.rerun()
+        st.warning(f"{t('complete_review_first')}")
+        st.info(f"{t('current_process_review1')} {state.current_iteration-1}/{state.max_iterations} {t('current_process_review1')}")       
         return
     
     # Get the latest review analysis and history

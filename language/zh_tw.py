@@ -60,6 +60,7 @@ translations = {
     'status':'狀態',
     'using_groq': '使用 Groq API（雲端）',
     'connected_groq':'已連線至 Groq API',
+    'connected':'已連線到',
 
 
     # Code Generation
@@ -167,6 +168,9 @@ translations = {
     "new_session": "準備再次審查？",
     "new_session_desc": "開始新的程式碼審查會話以練習不同的錯誤。",
     "start_new_session": "開始新會話",
+    "complete_review_first":"請在查看回饋意見前完成所有的審查嘗試",
+    "current_process_review1":"目前進度：已完成",
+    "current_process_review2":"次嘗試",
     
     # Tabs
     "tab_generate": "1. 生成問題",
@@ -192,4 +196,42 @@ translations = {
     "language": "語言",
     "english": "英文",
     "chinese": "繁體中文",
+
+    #LLM Log
+    "llm_logs_title": "LLM 互動日誌",
+    "refresh_logs": "重新整理日誌",
+    "logs_to_display": "顯示日誌數量",
+    "filter_by_type": "依類型篩選:",
+    "filter_by_date": "依日期篩選:",
+    "displaying_logs": "顯示 {count} 個最近日誌。最新的日誌最先顯示。",
+    "unknown_time": "未知時間",
+    "unknown_type": "未知類型",
+    "prompt_tab": "提示",
+    "response_tab": "回應",
+    "metadata_tab": "元數據",
+    "prompt_sent": "發送給 LLM 的提示:",
+    "response_label": "回應:",
+    "no_response": "沒有可用的回應",
+    "no_metadata": "沒有可用的元數據",
+    "no_logs_match": "沒有日誌符合所選的篩選條件。",
+    "no_logs_found": "沒有找到日誌。生成代碼或提交審核以創建日誌條目。",
+    "log_info_markdown": """
+    ### 日誌信息
+
+    日誌文件存儲在 `llm_logs` 目錄中，其中包含每種互動類型的子目錄：
+
+    - code_generation（代碼生成）
+    - code_regeneration（代碼重新生成）
+    - code_evaluation（代碼評估）
+    - review_analysis（審核分析）
+    - summary_generation（摘要生成）
+
+    每個日誌同時存儲為 `.json` 文件（用於程式使用）和 `.txt` 文件（方便閱讀）。
+    """,
+    "llm_logger_not_initialized": "LLM 日誌記錄器未初始化。",
+    "clear_logs": "清除日誌",
+    "clear_logs_warning": "這將刪除記憶體中的日誌。磁碟上的日誌文件將被保留。",
+    "confirm_clear_logs": "確認清除日誌",
+    "logs_cleared": "日誌已清除。"
+
 }

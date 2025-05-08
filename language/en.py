@@ -61,6 +61,7 @@ translations = {
     'status':'Status',
     'using_groq': 'Using Groq API (cloud)',
     'connected_groq':'Connected to Groq API',
+    'connected':'Connected',
 
 
 
@@ -169,6 +170,10 @@ translations = {
     "new_session": "Ready for another review?",
     "new_session_desc": "Start a new code review session to practice with different errors.",
     "start_new_session": "Start New Session",
+    "complete_review_first":"Please complete all review attempts before accessing feedback.",
+    "current_process_review1":"Current progress",
+    "current_process_review2":"attempts completed",
+
     
     # Tabs
     "tab_generate": "1. Generate Problem",
@@ -194,4 +199,41 @@ translations = {
     "language": "Language",
     "english": "English",
     "chinese": "Traditional Chinese",
+
+    # LLM logs
+    "llm_logs_title": "LLM Interaction Logs",
+    "refresh_logs": "Refresh Logs",
+    "logs_to_display": "Number of logs to display",
+    "filter_by_type": "Filter by log type:",
+    "filter_by_date": "Filter by date:",
+    "displaying_logs": "Displaying {count} recent logs. Newest logs appear first.",
+    "unknown_time": "Unknown time",
+    "unknown_type": "Unknown type",
+    "prompt_tab": "Prompt",
+    "response_tab": "Response",
+    "metadata_tab": "Metadata",
+    "prompt_sent": "Prompt sent to LLM:",
+    "response_label": "Response:",
+    "no_response": "No response available",
+    "no_metadata": "No metadata available",
+    "no_logs_match": "No logs match the selected filters.",
+    "no_logs_found": "No logs found. Generate code or submit reviews to create log entries.",
+    "log_info_markdown": """
+    ### Log Information
+
+    Log files are stored in the `llm_logs` directory, with subdirectories for each interaction type:
+
+    - code_generation
+    - code_regeneration
+    - code_evaluation
+    - review_analysis
+    - summary_generation
+
+    Each log is stored as both a `.json` file (for programmatic use) and a `.txt` file (for easier reading).
+    """,
+    "llm_logger_not_initialized": "LLM logger not initialized.",
+    "clear_logs": "Clear Logs",
+    "clear_logs_warning": "This will remove in-memory logs. Log files on disk will be preserved.",
+    "confirm_clear_logs": "Confirm Clear Logs",
+    "logs_cleared": "Logs cleared."
 }

@@ -78,8 +78,8 @@ def init_session_state():
         del st.session_state.code_snippet
 
 def render_llm_logs_tab():
-    """Render the LLM logs tab with detailed log information and file browsing capabilities."""
-    st.subheader("LLM Interaction Logs")
+    """Render the LLM logs tab with detailed log information and file browsing capabilities with full translation support."""
+    st.subheader(t("llm_logs_title") or "LLM Interaction Logs")
     
     if hasattr(st, 'session_state') and 'llm_logger' in st.session_state:
         llm_logger = st.session_state.llm_logger
@@ -87,12 +87,12 @@ def render_llm_logs_tab():
         # Add refresh button at the top
         col1, col2 = st.columns([5, 1])
         with col2:
-            if st.button("Refresh Logs", key="refresh_logs_btn"):
+            if st.button(t("refresh_logs") or "Refresh Logs", key="refresh_logs_btn"):
                 st.rerun()
         
         with col1:
             # Make the log count configurable
-            log_count = st.slider("Number of logs to display", min_value=5, max_value=30, value=10, step=5)
+            log_count = st.slider(t("logs_to_display") or "Number of logs to display", min_value=5, max_value=30, value=10, step=5)
         
         # Get logs (will now include both in-memory and disk logs)
         logs = llm_logger.get_recent_logs(log_count)
@@ -100,7 +100,7 @@ def render_llm_logs_tab():
         if logs:
             # Add filter for log types
             log_types = sorted(list(set(log.get("type", "unknown") for log in logs)))
-            log_type_filter = st.multiselect("Filter by log type:", log_types, default=log_types)
+            log_type_filter = st.multiselect(t("filter_by_type") or "Filter by log type:", log_types, default=log_types)
             
             # Date filter
             timestamps = [log.get("timestamp", "") for log in logs if "timestamp" in log]
@@ -108,7 +108,7 @@ def render_llm_logs_tab():
                 # Extract dates from timestamps
                 dates = sorted(set(ts.split("T")[0] for ts in timestamps if "T" in ts))
                 if dates:
-                    selected_dates = st.multiselect("Filter by date:", dates, default=dates)
+                    selected_dates = st.multiselect(t("filter_by_date") or "Filter by date:", dates, default=dates)
                     # Apply date filter
                     logs = [log for log in logs if "timestamp" in log and log["timestamp"].split("T")[0] in selected_dates]
             
@@ -116,12 +116,13 @@ def render_llm_logs_tab():
             filtered_logs = [log for log in logs if log.get("type", "unknown") in log_type_filter]
             
             if filtered_logs:
-                st.success(f"Displaying {len(filtered_logs)} recent logs. Newest logs appear first.")
+                st.success(t("displaying_logs").format(count=len(filtered_logs)) if t("displaying_logs") else 
+                          f"Displaying {len(filtered_logs)} recent logs. Newest logs appear first.")
                 
                 # Display logs with improved UI
-                for log in filtered_logs:
+                for idx, log in enumerate(filtered_logs):
                     # Format timestamp for display
-                    timestamp = log.get("timestamp", "Unknown time")
+                    timestamp = log.get("timestamp", t("unknown_time") or "Unknown time")
                     if "T" in timestamp:
                         date, time = timestamp.split("T")
                         time = time.split(".")[0] if "." in time else time  # Remove milliseconds
@@ -130,20 +131,24 @@ def render_llm_logs_tab():
                         display_time = timestamp
                     
                     # Create expander title with log type and timestamp
-                    log_type = log.get("type", "Unknown type").replace("_", " ").title()
+                    log_type = log.get("type", t("unknown_type") or "Unknown type").replace("_", " ").title()
                     expander_title = f"{log_type} - {display_time}"
                     
                     with st.expander(expander_title):
                         # Create tabs for different parts of the log
-                        log_tabs = st.tabs(["Prompt", "Response", "Metadata"])
+                        log_tabs = st.tabs([
+                            t("prompt_tab") or "Prompt", 
+                            t("response_tab") or "Response", 
+                            t("metadata_tab") or "Metadata"
+                        ])
                         
                         # Prompt tab
                         with log_tabs[0]:
                             st.text_area(
-                                "Prompt sent to LLM:", 
+                                t("prompt_sent") or "Prompt sent to LLM:", 
                                 value=log.get("prompt", ""), 
                                 height=250,
-                                key=f"prompt_{log.get('timestamp', '')}",
+                                key=f"prompt_{idx}_{log.get('timestamp', '')}",
                                 disabled=True
                             )
                         
@@ -174,14 +179,14 @@ def render_llm_logs_tab():
                                 else:
                                     # Show as plain text
                                     st.text_area(
-                                        "Response:", 
+                                        t("response_label") or "Response:", 
                                         value=response, 
                                         height=300,
-                                        key=f"response_{log.get('timestamp', '')}",
+                                        key=f"response_{idx}_{log.get('timestamp', '')}",
                                         disabled=True
                                     )
                             else:
-                                st.info("No response available")
+                                st.info(t("no_response") or "No response available")
                         
                         # Metadata tab
                         with log_tabs[2]:
@@ -189,14 +194,14 @@ def render_llm_logs_tab():
                             if metadata:
                                 st.json(metadata)
                             else:
-                                st.info("No metadata available")
+                                st.info(t("no_metadata") or "No metadata available")
             else:
-                st.info("No logs match the selected filters.")
+                st.info(t("no_logs_match") or "No logs match the selected filters.")
         else:
-            st.info("No logs found. Generate code or submit reviews to create log entries.")
+            st.info(t("no_logs_found") or "No logs found. Generate code or submit reviews to create log entries.")
             
             # Add helper information about log location
-            st.markdown("""
+            st.markdown(t("log_info_markdown") or """
             ### Log Information
             
             Log files are stored in the `llm_logs` directory, with subdirectories for each interaction type:
@@ -210,24 +215,24 @@ def render_llm_logs_tab():
             Each log is stored as both a `.json` file (for programmatic use) and a `.txt` file (for easier reading).
             """)
     else:
-        st.info("LLM logger not initialized.")
+        st.info(t("llm_logger_not_initialized") or "LLM logger not initialized.")
     
     # Add clear logs button with confirmation
     st.markdown("---")
-    if st.button("Clear Logs"):
-        st.warning("This will remove in-memory logs. Log files on disk will be preserved.")
+    if st.button(t("clear_logs") or "Clear Logs"):
+        st.warning(t("clear_logs_warning") or "This will remove in-memory logs. Log files on disk will be preserved.")
         confirm_key = "confirm_clear_logs"
         if confirm_key not in st.session_state:
             st.session_state[confirm_key] = False
         
-        if st.session_state[confirm_key] or st.button("Confirm Clear Logs", key="confirm_clear_btn"):
+        if st.session_state[confirm_key] or st.button(t("confirm_clear_logs") or "Confirm Clear Logs", key="confirm_clear_btn"):
             if hasattr(st, 'session_state') and 'llm_logger' in st.session_state:
                 st.session_state.llm_logger.clear_logs()
                 st.session_state[confirm_key] = False
-                st.success("Logs cleared.")
+                st.success(t("logs_cleared") or "Logs cleared.")
                 st.rerun()
             else:
-                st.error("LLM logger not initialized.")
+                st.error(t("llm_logger_not_initialized") or "LLM logger not initialized.")
 
 def render_sidebar(llm_manager, workflow):
     """
@@ -244,7 +249,7 @@ def render_sidebar(llm_manager, workflow):
         
         if provider == "Ollama":
             connection_status, message = llm_manager.check_ollama_connection()
-            status = "✅ Connected" if connection_status else "❌ Disconnected"
+            status = f"✅ {t('connected')}" if connection_status else "❌ Disconnected"
             st.markdown(f"**{t('provider')}:** {provider}  \n**{t('status')}:** {status}")
             
             if not connection_status:
@@ -257,7 +262,7 @@ def render_sidebar(llm_manager, workflow):
                 """)
         elif provider == "Groq":
             connection_status, message = llm_manager.check_groq_connection()
-            status = "✅ Connected" if connection_status else "❌ Disconnected"
+            status = f"✅ {t('connected')}" if connection_status else "❌ Disconnected"
             st.markdown(f"**{t('provider')}:** {provider}  \n**{t('status')}:** {status}")
             
             if not connection_status:

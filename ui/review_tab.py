@@ -10,6 +10,7 @@ import logging
 import time
 from typing import Dict, List, Any, Optional, Callable
 import datetime
+from utils.language_utils import t, get_current_language
 
 # Configure logging
 logging.basicConfig(
@@ -118,17 +119,17 @@ def render_review_tab(workflow, code_display_ui):
         workflow: JavaCodeReviewGraph workflow
         code_display_ui: CodeDisplayUI instance for displaying code
     """
-    st.subheader("Review Java Code")
+    st.subheader(f"{t('review_java_code')}")
     
     # Access code from workflow_state instead of directly from session_state
     # This ensures we're using the correct state path
     if not hasattr(st.session_state, 'workflow_state') or not st.session_state.workflow_state:
-        st.info("No code has been generated yet. Please go to the 'Generate Problem' tab first.")
+        st.info(f"{t('no_code_generated')}")
         return
         
     # Check if we have a code snippet in the workflow state
     if not hasattr(st.session_state.workflow_state, 'code_snippet') or not st.session_state.workflow_state.code_snippet:
-        st.info("No code has been generated yet. Please go to the 'Generate Problem' tab first.")
+        st.info(f"{t('no_code_generated')}")
         return
     
     # Get known problems for instructor view
@@ -220,11 +221,11 @@ def render_review_tab(workflow, code_display_ui):
     else:
         # Display appropriate message based on why review is blocked
         if st.session_state.workflow_state.review_sufficient or all_errors_found:
-            st.success("🎉 Congratulations! You've found all the errors! Proceed to the feedback tab to see your results.")
+            st.success(f"{t('all_errors_found')}")
         else:
-            st.warning(f"You have completed all {max_iterations} review iterations. View feedback in the next tab.")
+            st.warning(f"{t('iterations_completed')}")
         
-        if st.button("View Feedback"):
+        if st.button(f"{t('view_feedback')}"):
             st.session_state.active_tab = 2  # 2 is the index of the feedback tab
             st.rerun()
         

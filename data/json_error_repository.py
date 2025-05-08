@@ -27,7 +27,7 @@ class JsonErrorRepository:
     error data from Java_code_review_errors.json file.
     """
     
-    def __init__(self, java_errors_path: str = "Java_code_review_errors.json"):
+    def __init__(self, java_errors_path: str = None):
         """
         Initialize the JSON Error Repository.
         
@@ -37,7 +37,7 @@ class JsonErrorRepository:
         # Get current language
         self.current_language = get_current_language()
         self.java_errors_path = java_errors_path
-
+        print('self.current_language', self.current_language)
         # Determine file path based on language
         if java_errors_path is None:
             self.java_errors_path = f"{self.current_language}_Java_code_review_errors.json"
@@ -59,8 +59,31 @@ class JsonErrorRepository:
             True if files are loaded successfully, False otherwise
         """
         java_loaded = self._load_java_errors()
+        
+        # If loading fails, try loading the English version as a fallback
+        if not java_loaded and self.current_language != "en":
+            logger.warning(f"Failed to load {self.current_language} Java errors, trying English version")
+            old_path = self.java_errors_path
+            self.java_errors_path = "en_Java_code_review_errors.json"
+            java_loaded = self._load_java_errors()
+            if not java_loaded:
+                logger.warning(f"Failed to load both {old_path} and {self.java_errors_path}")
+        
+        # If still not loaded, use hardcoded fallback categories
+        if not java_loaded:
+            logger.warning("Using fallback error categories")
+            # Provide fallback error categories to ensure UI doesn't break
+            self.java_errors = {
+                "Logical": [],
+                "Syntax": [],
+                "Code Quality": [],
+                "Standard Violation": [],
+                "Java Specific": []
+            }
+            self.java_error_categories = list(self.java_errors.keys())
+        
         return java_loaded
-    
+
     def _load_java_errors(self) -> bool:
         """
         Load Java errors from JSON file.
@@ -74,15 +97,20 @@ class JsonErrorRepository:
             
             for file_path in file_paths:
                 if os.path.exists(file_path):
-                    with open(file_path, 'r') as file:
-                        self.java_errors = json.load(file)
-                        self.java_error_categories = list(self.java_errors.keys())
-                        logger.info(f"Loaded Java errors from {file_path} with {len(self.java_error_categories)} categories")
-                        return True
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as file:
+                            self.java_errors = json.load(file)
+                            self.java_error_categories = list(self.java_errors.keys())
+                            logger.info(f"Loaded Java errors from {file_path} with {len(self.java_error_categories)} categories")
+                            return True
+                    except Exception as file_error:
+                        logger.error(f"Error reading or parsing file {file_path}: {str(file_error)}")
+                        continue  # Try the next path
             
-            logger.warning(f"Could not find Java errors file: {self.java_errors_path}")
+            # If we get here, none of the paths worked
+            logger.warning(f"Could not find or load Java errors file: {self.java_errors_path}")
             return False
-            
+                
         except Exception as e:
             logger.error(f"Error loading Java errors: {str(e)}")
             return False
@@ -110,7 +138,11 @@ class JsonErrorRepository:
             os.path.join(parent_dir, file_name),  # In the parent directory (project root)
             os.path.join(parent_dir, "data", file_name),  # In a data subdirectory
             os.path.join(parent_dir, "resources", file_name),  # In a resources subdirectory
-            os.path.join(parent_dir, "assets", file_name)  # In an assets subdirectory
+            os.path.join(parent_dir, "assets", file_name),  # In an assets subdirectory
+            # Additional paths
+            os.path.join(os.getcwd(), file_name),  # Current working directory 
+            os.path.join(os.getcwd(), "data", file_name),  # Data folder in current working directory
+            os.path.join(os.path.expanduser("~"), file_name),  # User's home directory
         ]
     
     def get_all_categories(self) -> Dict[str, List[str]]:
@@ -126,7 +158,7 @@ class JsonErrorRepository:
     
     def get_category_errors(self, category_name: str) -> List[Dict[str, str]]:
         """
-        Get errors for a specific category.
+        Get errors for a specific category with language-aware field mapping.
         
         Args:
             category_name: Name of the category
@@ -135,7 +167,42 @@ class JsonErrorRepository:
             List of error dictionaries for the category
         """
         if category_name in self.java_errors:
-            return self.java_errors[category_name]
+            errors = self.java_errors[category_name]
+            
+            # Check if we need field name mapping (for non-English languages)
+            needs_mapping = False
+            if errors and isinstance(errors, list) and len(errors) > 0:
+                # Check the first error to see if it uses localized field names
+                first_error = errors[0]
+                if '錯誤名稱' in first_error and 'error_name' not in first_error:
+                    needs_mapping = True
+            
+            # Return the original list if no mapping needed
+            if not needs_mapping:
+                return errors
+            
+            # Map field names for each error
+            mapped_errors = []
+            for error in errors:
+                mapped_error = {}
+                
+                # Map Chinese field names to English field names
+                if '錯誤名稱' in error:
+                    mapped_error['error_name'] = error['錯誤名稱']
+                if '描述' in error:
+                    mapped_error['description'] = error['描述']
+                if '實作範例' in error:
+                    mapped_error['implementation_guide'] = error['實作範例']
+                    
+                # Add any other fields directly
+                for key, value in error.items():
+                    if key not in ['錯誤名稱', '描述', '實作範例']:
+                        mapped_error[key] = value
+                        
+                mapped_errors.append(mapped_error)
+                
+            return mapped_errors
+                
         return []
     
     def get_errors_by_categories(self, selected_categories: Dict[str, List[str]]) -> Dict[str, List[Dict[str, str]]]:
