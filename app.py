@@ -16,6 +16,9 @@ from state_schema import WorkflowState
 # Import CSS utilities
 from static.css_utils import load_css
 
+# Import language utilities
+from utils.language_utils import init_language, render_language_selector, t
+
 # Configure logging
 logging.getLogger('streamlit').setLevel(logging.ERROR)
 logging.basicConfig(
@@ -59,7 +62,7 @@ load_dotenv(override=True)
 # Set page config
 st.set_page_config(
     page_title="Java Code Review Trainer",
-    page_icon="",  # Java coffee cup icon
+    page_icon="☕",  # Java coffee cup icon
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -84,22 +87,23 @@ if not loaded_files:
 
 def main():
     """Enhanced main application function with provider selection."""
+    # Initialize language selection
+    init_language()
+    
     # Initialize the authentication UI
     auth_ui = AuthUI()
 
     # Check if the user is authenticated
     if not auth_ui.is_authenticated():
         # Render the authentication page
+        render_language_selector()  # Add language selector to login page
         is_authenticated = auth_ui.render_auth_page()
         if not is_authenticated:
             return
 
-    # Get user level and store in session state - ADD THIS
+    # Get user level and store in session state
     user_level = auth_ui.get_user_level()    
     st.session_state.user_level = user_level
-
-    # Add this line to display user profile in sidebar
-    
 
     # Check if we're performing a full reset
     if st.session_state.get("full_reset", False):
@@ -108,7 +112,7 @@ def main():
         # Create a completely new session state
         for key in list(st.session_state.keys()):
             # Only keep essential UI preferences 
-            if key not in ["error_selection_mode", "selected_error_categories", "selected_specific_errors"]:
+            if key not in ["error_selection_mode", "selected_error_categories", "selected_specific_errors", "language"]:
                 del st.session_state[key]
         # Initialize a fresh workflow state
         st.session_state.workflow_state = WorkflowState()
@@ -121,6 +125,10 @@ def main():
     # Initialize LLM manager
     llm_manager = LLMManager()
     
+    # Add language selector to sidebar
+    render_language_selector()
+    
+    # Render user profile
     auth_ui.render_user_profile()
 
     # Initialize provider selector UI
@@ -141,16 +149,14 @@ def main():
     
     # Render sidebar with provider status
     render_sidebar(llm_manager, workflow)
-
-   
-
+    
     provider_selector.render_provider_status()
     
     # Header with improved styling
-    st.markdown("""
+    st.markdown(f"""
     <div style="text-align: center; margin-bottom: 20px;">
-        <h1 style="color: rgb(178 185 213); margin-bottom: 5px;">Java Code Review Training System</h1>
-        <p style="font-size: 1.1rem; color: #666;">Learn and practice Java code review skills with AI-generated exercises</p>
+        <h1 style="color: rgb(178 185 213); margin-bottom: 5px;">{t('app_title')}</h1>
+        <p style="font-size: 1.1rem; color: #666;">{t('app_subtitle')}</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -163,10 +169,10 @@ def main():
     
     # Create enhanced tabs for different steps of the workflow
     tab_labels = [
-        "1. Generate Problem", 
-        "2. Submit Review", 
-        "3. View Feedback",
-        "4. LLM Logs"
+        t("tab_generate"), 
+        t("tab_review"), 
+        t("tab_feedback"),
+        t("tab_logs")
     ]
     
     # Use the enhanced tabs function

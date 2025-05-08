@@ -9,6 +9,7 @@ import streamlit as st
 import logging
 import random
 from typing import List, Dict, Any, Optional, Tuple, Callable
+from utils.language_utils import t
 
 # Configure logging
 logging.basicConfig(
@@ -64,13 +65,10 @@ class ErrorSelectorUI:
         Returns:
             Dictionary with selected categories
         """
-        st.subheader("Select Error Categories")
+        st.subheader(t("select_error_categories"))
         
         # Add help text explaining how this mode works
-        st.info("""
-        **Advanced Mode**: Select specific error categories to include in the generated code. 
-        The system will randomly choose errors from your selected categories.
-        """)
+        st.info(t("advanced_mode_help"))
         
         java_error_categories = all_categories.get("java_errors", [])
         
@@ -90,23 +88,23 @@ class ErrorSelectorUI:
         category_info = {
             "Logical": {
                 "icon": "🧠",
-                "description": "Issues with program logic, calculations, and flow control"
+                "description": t("logical_desc")
             },
             "Syntax": {
                 "icon": "🔍",
-                "description": "Java language syntax and structure errors"
+                "description": t("syntax_desc")
             },
             "Code Quality": {
                 "icon": "✨",
-                "description": "Style, readability, and maintainability issues"
+                "description": t("code_quality_desc")
             },
             "Standard Violation": {
                 "icon": "📏",
-                "description": "Violations of Java conventions and best practices"
+                "description": t("standard_violation_desc")
             },
             "Java Specific": {
                 "icon": "☕",
-                "description": "Issues specific to Java language features"
+                "description": t("java_specific_desc")
             }
         }
         
@@ -120,7 +118,10 @@ class ErrorSelectorUI:
             
             # Get icon and description
             icon = category_info.get(category, {}).get("icon", "📁")
-            description = category_info.get(category, {}).get("description", "Error category")
+            description = category_info.get(category, {}).get("description", t("error_category"))
+            
+            # Get translated category name
+            category_name = t(category.lower()) if category.lower() in ["logical", "syntax", "code_quality", "standard_violation", "java_specific"] else category
             
             # Create a card with toggle effect for each category
             selected_class = "selected" if is_selected else ""
@@ -129,7 +130,7 @@ class ErrorSelectorUI:
                 onclick="this.classList.toggle('selected'); 
                         document.getElementById('{category_key}_checkbox').click();">
                 <div class="problem-area-title">
-                    {icon} {category}
+                    {icon} {category_name}
                     <span class="icon">{'✓' if is_selected else ''}</span>
                 </div>
                 <p class="problem-area-description">{description}</p>
@@ -156,18 +157,19 @@ class ErrorSelectorUI:
         st.markdown('</div>', unsafe_allow_html=True)
         
         # Selection summary
-        st.write("### Selected Categories")
+        st.write("### " + t("selected_categories"))
         if not current_selections:
-            st.warning("No categories selected. You must select at least one category to generate code.")
+            st.warning(t("no_categories"))
         else:
             # Display selected categories with visual enhancements
             st.markdown('<div class="selected-categories">', unsafe_allow_html=True)
             for category in current_selections:
                 icon = category_info.get(category, {}).get("icon", "📁")
+                category_name = t(category.lower()) if category.lower() in ["logical", "syntax", "code_quality", "standard_violation", "java_specific"] else category
                 st.markdown(f"""
                 <div class="selected-category-item">
                     <span class="category-icon">{icon}</span>
-                    <span class="category-name">{category}</span>
+                    <span class="category-name">{category_name}</span>
                 </div>
                 """, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
@@ -188,20 +190,24 @@ class ErrorSelectorUI:
         Returns:
             List of selected specific errors
         """
-        st.subheader("Select Specific Errors")
+        st.subheader(t("select_specific_errors"))
         
         # Get all categories
         all_categories = error_repository.get_all_categories()
         java_error_categories = all_categories.get("java_errors", [])
         
+        # Translate category names
+        translated_categories = []
+        for category in java_error_categories:
+            translated_category = t(category.lower()) if category.lower() in ["logical", "syntax", "code_quality", "standard_violation", "java_specific"] else category
+            translated_categories.append(translated_category)
+        
         # Container for selected errors
         if "selected_specific_errors" not in st.session_state:
             st.session_state.selected_specific_errors = []
-
-        #tab_labels = [f"{i+1} {category}" for i, category in enumerate(java_error_categories)]
             
         # Create tabs for each error category
-        error_tabs = st.tabs(java_error_categories)
+        error_tabs = st.tabs(translated_categories)
 
         # For each category tab
         for i, category in enumerate(java_error_categories):
@@ -209,7 +215,7 @@ class ErrorSelectorUI:
                 # Get errors for this category
                 errors = error_repository.get_category_errors(category)
                 if not errors:
-                    st.info(f"No errors found in {category} category.")
+                    st.info(f"{t('no_errors_found')} {category} {t('category')}.")
                     continue
                     
                 # Display each error with a select button
@@ -230,7 +236,7 @@ class ErrorSelectorUI:
                         st.markdown(f"*{description}*")
                     with col2:
                         if not is_selected:
-                            if st.button("Select", key=f"java_{category}_{error_name}"):
+                            if st.button(t("select"), key=f"java_{category}_{error_name}"):
                                 st.session_state.selected_specific_errors.append({
                                     "type": "java_error",
                                     "category": category,
@@ -240,15 +246,15 @@ class ErrorSelectorUI:
                                 })
                                 st.rerun()
                         else:
-                            st.success("Selected")
+                            st.success(t("selected"))
                     
                     st.markdown("---")
         
         # Show selected errors
-        st.subheader("Selected Issues")
+        st.subheader(t("selected_issues"))
         
         if not st.session_state.selected_specific_errors:
-            st.info("No specific issue selected. Random errors will be used based on categories.")
+            st.info(t("no_specific_issues"))
         else:
             for idx, error in enumerate(st.session_state.selected_specific_errors):
                 col1, col2 = st.columns([5, 1])
@@ -256,7 +262,7 @@ class ErrorSelectorUI:
                     st.markdown(f"**{error['category']} - {error['name']}**")
                     st.markdown(f"*{error['description']}*")
                 with col2:
-                    if st.button("Remove", key=f"remove_{idx}"):
+                    if st.button(t("remove"), key=f"remove_{idx}"):
                         st.session_state.selected_specific_errors.pop(idx)
                         st.rerun()
         
@@ -269,12 +275,12 @@ class ErrorSelectorUI:
         Returns:
             Selected mode ("advanced" or "specific")
         """
-        st.markdown("#### Error Selection Mode")
+        st.markdown("#### " + t("error_selection_mode"))
         
         # Create a more descriptive selection with radio buttons
         mode_options = [
-            "Advanced: Select by error categories",
-            "Specific: Choose exact errors to include"
+            t("advanced_mode"),
+            t("specific_mode")
         ]
         
         # Convert session state to index
@@ -286,7 +292,7 @@ class ErrorSelectorUI:
         # Error selection mode radio buttons with CSS class for styling
         st.markdown('<div class="error-mode-radio">', unsafe_allow_html=True)
         selected_option = st.radio(
-            "How would you like to select errors?",
+            t("error_selection_prompt"),
             options=mode_options,
             index=current_index,
             key="error_mode_radio",
@@ -297,9 +303,9 @@ class ErrorSelectorUI:
         
         # Update error selection mode based on selection
         new_mode = st.session_state.error_selection_mode
-        if "Advanced" in selected_option and st.session_state.error_selection_mode != "advanced":
+        if t("advanced_mode") in selected_option and st.session_state.error_selection_mode != "advanced":
             new_mode = "advanced"
-        elif "Specific" in selected_option and st.session_state.error_selection_mode != "specific":
+        elif t("specific_mode") in selected_option and st.session_state.error_selection_mode != "specific":
             new_mode = "specific"
         
         # Only update if the mode has changed
@@ -351,4 +357,3 @@ class ErrorSelectorUI:
             "difficulty_level": difficulty_level,
             "code_length": code_length
         }
-    

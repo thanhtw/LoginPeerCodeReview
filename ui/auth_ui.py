@@ -9,8 +9,12 @@ import streamlit as st
 import logging
 import time
 from typing import Dict, Any, Optional, Callable
+import os
+from pathlib import Path
+import base64
 
 from auth.mysql_auth import MySQLAuthManager
+from utils.language_utils import t, get_current_language
 
 # Configure logging
 logging.basicConfig(
@@ -39,6 +43,26 @@ class AuthUI:
                 "user_info": {}
             }
     
+    def _load_image(self, file_name, width=100):
+        """Load and encode an image for HTML display."""
+        # Determine the path to the image
+        script_dir = Path(__file__).parent.parent
+        image_path = script_dir / "static" / "images" / file_name
+        
+        # Check if the image exists
+        if not image_path.exists():
+            return ""
+            
+        # Get the static URL for the image
+        try:
+            with open(image_path, "rb") as img_file:
+                img_bytes = img_file.read()
+                encoded = base64.b64encode(img_bytes).decode()
+                return f'<img src="data:image/png;base64,{encoded}" width="{width}">'
+        except Exception as e:
+            logger.error(f"Error loading image {file_name}: {str(e)}")
+            return ""
+    
     def render_auth_page(self) -> bool:
         """
         Render the authentication page with login and registration forms.
@@ -46,11 +70,64 @@ class AuthUI:
         Returns:
             bool: True if user is authenticated, False otherwise
         """
-        st.title("")
-
+        # Load and display a logo if available
+        logo_html = self._load_image("java_logo.png", width=120)
+        
+        # Apply custom CSS for the login page
         st.markdown("""
-            <div style="text-align: center; margin-bottom: 20px;">
-                <h1 style="color: rgb(178 185 213); margin-bottom: 5px;">Java Code Review Trainer - Login</h1>                
+        <style>
+        .auth-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        .auth-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .auth-form {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .auth-form h3 {
+            margin-bottom: 20px;
+            color: #4c68d7;
+            text-align: center;
+        }
+        .auth-divider {
+            text-align: center;
+            margin: 20px 0;
+            color: #666;
+        }
+        .auth-footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        .demo-section {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        # Main container
+        st.markdown('<div class="auth-container">', unsafe_allow_html=True)
+        
+        # Header with logo and title
+        st.markdown(f"""
+            <div class="auth-header">
+                {logo_html}
+                <h1 style="color: rgb(178 185 213); margin-bottom: 5px;">{t('app_title')}</h1>
+                <p style="font-size: 1.1rem; color: #666;">{t('app_subtitle')}</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -59,14 +136,15 @@ class AuthUI:
         
         with col1:
             # Login form
-            st.subheader("Login")
+            st.markdown('<div class="auth-form">', unsafe_allow_html=True)
+            st.markdown(f'<h3>{t("login")}</h3>', unsafe_allow_html=True)
             
-            email = st.text_input("Email", key="login_email")
-            password = st.text_input("Password", type="password", key="login_password")
+            email = st.text_input(t("email"), key="login_email")
+            password = st.text_input(t("password"), type="password", key="login_password")
             
-            if st.button("Login", use_container_width=True):
+            if st.button(t("login"), use_container_width=True, key="login_button"):
                 if not email or not password:
-                    st.error("Please enter both email and password")
+                    st.error(t("fill_all_fields"))
                 else:
                     # Authenticate user
                     result = self.auth_manager.authenticate_user(email, password)
@@ -80,36 +158,48 @@ class AuthUI:
                             "email": result.get("email"),
                             "level": result.get("level", "basic")
                         }                     
-                        st.success("Login successful!")
+                        st.success(t("login") + " " + t("login_failed"))
                         
                         # Force UI refresh
                         st.rerun()
                     else:
-                        st.error(f"Login failed: {result.get('error', 'Invalid credentials')}")
+                        st.error(f"{t('login_failed')}: {result.get('error', t('invalid_credentials'))}")
+            st.markdown('</div>', unsafe_allow_html=True)
         
         with col2:
             # Registration form
-            st.subheader("Register")
+            st.markdown('<div class="auth-form">', unsafe_allow_html=True)
+            st.markdown(f'<h3>{t("register")}</h3>', unsafe_allow_html=True)
             
-            display_name = st.text_input("Display Name", key="reg_name")
-            email = st.text_input("Email", key="reg_email")
-            password = st.text_input("Password", type="password", key="reg_password")
-            confirm_password = st.text_input("Confirm Password", type="password", key="reg_confirm")
+            display_name = st.text_input(t("display_name"), key="reg_name")
+            email = st.text_input(t("email"), key="reg_email")
+            password = st.text_input(t("password"), type="password", key="reg_password")
+            confirm_password = st.text_input(t("confirm_password"), type="password", key="reg_confirm")
             
             # Student level selection
-            level = st.selectbox(
-                "Your Experience Level",
-                options=["Basic", "Medium", "Senior"],
+            level_options = ["Basic", "Medium", "Senior"]
+            level_labels = {"en": level_options, "zh-tw": ["基礎", "中級", "高級"]}
+            
+            selected_level = st.selectbox(
+                t("experience_level"),
+                options=level_labels.get(get_current_language(), level_options),
                 index=0,
                 key="reg_level"
             )
             
-            if st.button("Register", use_container_width=True):
+            # Map the displayed level back to database value
+            level_map = {
+                "Basic": "basic", "Medium": "medium", "Senior": "senior",
+                "基礎": "basic", "中級": "medium", "高級": "senior"
+            }
+            level = level_map.get(selected_level, "basic")
+            
+            if st.button(t("register"), use_container_width=True, key="register_button"):
                 # Validate inputs
                 if not display_name or not email or not password or not confirm_password:
-                    st.error("Please fill in all fields")
+                    st.error(t("fill_all_fields"))
                 elif password != confirm_password:
-                    st.error("Passwords do not match")
+                    st.error(t("passwords_mismatch"))
                 else:
                     # Register user
                     result = self.auth_manager.register_user(
@@ -128,17 +218,19 @@ class AuthUI:
                             "email": result.get("email"),
                             "level": result.get("level", "basic")
                         }
-                        st.success("Registration successful!")
+                        st.success(t("registration_failed"))
                         
                         # Force UI refresh
                         st.rerun()
                     else:
-                        st.error(f"Registration failed: {result.get('error', 'Unknown error')}")
+                        st.error(f"{t('registration_failed')}: {result.get('error', t('email_in_use'))}")
+            st.markdown('</div>', unsafe_allow_html=True)
         
         # Add a demo mode option
-        st.markdown("---")
-        st.subheader("Demo Mode")
-        if st.button("Continue in Demo Mode (No Login Required)"):
+        st.markdown(f'<div class="demo-section">', unsafe_allow_html=True)
+        st.subheader(t("demo_mode"))
+        st.markdown(f"<p>{t('continue_demo')}</p>", unsafe_allow_html=True)
+        if st.button(t("continue_demo"), use_container_width=True, key="demo_button"):
             # Set a demo user for testing
             st.session_state.auth["is_authenticated"] = True
             st.session_state.auth["user_id"] = "demo-user"
@@ -148,6 +240,10 @@ class AuthUI:
                 "level": "basic"
             }
             return True
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Close main container
+        st.markdown('</div>', unsafe_allow_html=True)
         
         return st.session_state.auth["is_authenticated"]
     
@@ -164,8 +260,43 @@ class AuthUI:
 
         st.sidebar.title("Java Review Trainer")
         
-        # Display user info       
-        st.sidebar.markdown(f"**Hi:** {display_name} - **Your level**: {level}")
+        # Add styled profile section
+        st.sidebar.markdown("""
+        <style>
+        .profile-container {
+            padding: 15px;
+            background-color: rgba(76, 104, 215, 0.1);
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .profile-name {
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-bottom: 5px;
+        }
+        .profile-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        .profile-label {
+            color: #666;
+        }
+        .profile-value {
+            font-weight: 500;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        st.sidebar.markdown(f"""
+        <div class="profile-container">
+            <div class="profile-name">{display_name}</div>
+            <div class="profile-item">
+                <span class="profile-label">{t("level")}:</span>
+                <span class="profile-value">{level}</span>
+            </div>
+        """, unsafe_allow_html=True)
      
         # Get extended profile from database if user is not demo user
         if st.session_state.auth.get("user_id") != "demo-user":
@@ -176,16 +307,25 @@ class AuthUI:
                     # Display additional stats
                     reviews = profile.get("reviews_completed", 0)
                     score = profile.get("score", 0)                   
-                    st.sidebar.markdown(f"**Review Times:** {reviews} - **Your Score:** {score}")   
+                    st.sidebar.markdown(f"""
+                    <div class="profile-item">
+                        <span class="profile-label">{t("review_times")}:</span>
+                        <span class="profile-value">{reviews}</span>
+                    </div>
+                    <div class="profile-item">
+                        <span class="profile-label">{t("score")}:</span>
+                        <span class="profile-value">{score}</span>
+                    </div>
+                    """, unsafe_allow_html=True)   
             except Exception as e:
                 logger.error(f"Error getting user profile: {str(e)}")
+                
+        # Close profile container
+        st.sidebar.markdown("</div>", unsafe_allow_html=True)
         
         # Application info
-        st.sidebar.subheader("About")
-        st.sidebar.markdown("""
-        This application helps you learn and practice Java code review skills
-        by generating code with intentional errors for you to identify.
-        """)
+        st.sidebar.subheader(t("about"))
+        st.sidebar.markdown(t("about_app"))
     
     def update_review_stats(self, accuracy: float, score: int = 0):
         """
