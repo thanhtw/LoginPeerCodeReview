@@ -101,6 +101,8 @@ class WorkflowConditions:
             identified_count = latest_review.analysis.get("identified_count", 0)
             total_problems = latest_review.analysis.get("total_problems", 0)
             if identified_count == total_problems and total_problems > 0:
+                # Also set review_sufficient to True to maintain state consistency
+                state.review_sufficient = True
                 logger.info(f"Review path decision: generate_summary (all {total_problems} issues identified)")
                 return "generate_summary"
         

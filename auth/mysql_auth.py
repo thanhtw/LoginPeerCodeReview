@@ -166,7 +166,17 @@ class MySQLAuthManager:
             return {"success": False, "error": "Error updating user data"}
     
     def update_review_stats(self, user_id: str, accuracy: float, score: int = 0) -> Dict[str, Any]:
-        """Update a user's review statistics with score."""
+        """
+        Update a user's review statistics with score and automatically upgrade user level based on score.
+        
+        Args:
+            user_id: The user's ID
+            accuracy: The accuracy of the review (0-100 percentage)
+            score: Number of errors detected in the review
+            
+        Returns:
+            Dict containing success status and updated statistics
+        """
         #logger.info(f"MySQLAuthManager: Updating stats for user {user_id}: accuracy={accuracy:.1f}%, score={score}")
         
         # Validate connection
@@ -176,7 +186,7 @@ class MySQLAuthManager:
         
         # Get current stats
         query = """
-            SELECT reviews_completed, score 
+            SELECT reviews_completed, score, level 
             FROM users 
             WHERE uid = %s
         """
@@ -188,40 +198,68 @@ class MySQLAuthManager:
             #logger.error(f"User {user_id} not found in database")
             return {"success": False, "error": "User not found"}
         
-        # Log retrieved values
-        #logger.info(f"Retrieved current stats: {result}")
-        
+       
         # Calculate new stats
         current_reviews = result["reviews_completed"]
         current_score = result.get("score", 0)
+        current_level = result.get("level", "basic")
         
         new_reviews = current_reviews + 1
         new_score = current_score + score
         
-        #logger.info(f"Calculated new stats: reviews {current_reviews} -> {new_reviews}, " + 
-        #        f"score {current_score} -> {new_score} (added {score} points)")
+        
+        # Determine if level upgrade is needed based on new score
+        new_level = current_level
+        if new_score > 200 and current_level != "senior":
+            new_level = "senior"
+        elif new_score > 100 and new_score <= 200 and current_level == "basic":
+            new_level = "medium"
+        
+        # Only update level if it changed
+        level_changed = new_level != current_level
         
         # Update the database
-        update_query = """
-            UPDATE users 
-            SET reviews_completed = %s, score = %s 
-            WHERE uid = %s
-        """
-        
-        #logger.info(f"Executing update query with params: ({new_reviews}, {new_score}, {user_id})")
-        affected_rows = self.db.execute_query(
-            update_query, 
-            (new_reviews, new_score, user_id)
-        )
+        if level_changed:
+            update_query = """
+                UPDATE users 
+                SET reviews_completed = %s, score = %s, level = %s 
+                WHERE uid = %s
+            """
+            
+            
+            affected_rows = self.db.execute_query(
+                update_query, 
+                (new_reviews, new_score, new_level, user_id)
+            )
+        else:
+            update_query = """
+                UPDATE users 
+                SET reviews_completed = %s, score = %s 
+                WHERE uid = %s
+            """
+            
+            
+            affected_rows = self.db.execute_query(
+                update_query, 
+                (new_reviews, new_score, user_id)
+            )
         
         #logger.info(f"Database update affected rows: {affected_rows}")
         
         if affected_rows is not None and affected_rows >= 0:
-            return {
+            result = {
                 "success": True,
                 "reviews_completed": new_reviews,
                 "score": new_score
             }
+            
+            # Add level information if it changed
+            if level_changed:
+                result["level_changed"] = True
+                result["old_level"] = current_level
+                result["new_level"] = new_level
+            
+            return result
         else:
             #logger.error("Database update failed or returned None")
             return {"success": False, "error": "Error updating review stats"}

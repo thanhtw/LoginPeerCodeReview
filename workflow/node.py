@@ -453,7 +453,11 @@ class WorkflowNodes:
                 
                 logger.info(f"Updated review analysis: {identified_count}/{original_error_count} " +
                         f"({analysis['identified_percentage']:.1f}%) [Found problems: {found_problems_count}]")
-            
+                # NEW CODE: Mark review as sufficient if all errors are found regardless of LLM assessment
+                if identified_count == original_error_count:
+                    analysis["review_sufficient"] = True
+                    logger.info("All errors found! Marking review as sufficient.")
+
             # Update the review with analysis
             latest_review.analysis = analysis
             

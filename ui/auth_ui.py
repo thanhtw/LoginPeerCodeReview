@@ -218,6 +218,13 @@ class AuthUI:
         if result and result.get("success", False):
             logger.info(f"Updated user statistics: reviews={result.get('reviews_completed')}, " +
                     f"score={result.get('score')}")
+            
+            # Update session state if level changed
+            if result.get("level_changed", False):
+                new_level = result.get("new_level")
+                if new_level and st.session_state.auth.get("user_info"):
+                    st.session_state.auth["user_info"]["level"] = new_level
+                    logger.info(f"Updated user level in session to: {new_level}")
         else:
             err_msg = result.get('error', 'Unknown error') if result else "No result returned"
             logger.error(f"Failed to update review stats: {err_msg}")

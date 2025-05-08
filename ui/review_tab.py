@@ -172,9 +172,16 @@ def render_review_tab(workflow, code_display_ui):
             latest_review = st.session_state.workflow_state.review_history[-1]
             targeted_guidance = getattr(latest_review, 'targeted_guidance', None)
             review_analysis = getattr(latest_review, 'analysis', {})
+
+    all_errors_found = False
+    if review_analysis:
+        identified_count = review_analysis.get("identified_count", 0)
+        total_problems = review_analysis.get("total_problems", 0)
+        if identified_count == total_problems and total_problems > 0:
+            all_errors_found = True
     
     # Only allow submission if we're under the max iterations
-    if current_iteration <= max_iterations:
+    if current_iteration <= max_iterations and not st.session_state.workflow_state.review_sufficient and not all_errors_found:
         # Get the current student review (empty for first iteration)
         student_review = ""
         if latest_review is not None:
@@ -211,10 +218,17 @@ def render_review_tab(workflow, code_display_ui):
             review_analysis=review_analysis
         )
     else:
-        # If we've reached max iterations, display a message and auto-switch to feedback tab
-        st.warning(f"You have completed all {max_iterations} review iterations. View feedback in the next tab.")
+        # Display appropriate message based on why review is blocked
+        if st.session_state.workflow_state.review_sufficient or all_errors_found:
+            st.success("🎉 Congratulations! You've found all the errors! Proceed to the feedback tab to see your results.")
+        else:
+            st.warning(f"You have completed all {max_iterations} review iterations. View feedback in the next tab.")
+        
+        if st.button("View Feedback"):
+            st.session_state.active_tab = 2  # 2 is the index of the feedback tab
+            st.rerun()
         
         # Automatically switch to feedback tab if not already there
-        if st.session_state.active_tab != 2:  # 2 is the index of the feedback tab
+        if st.session_state.active_tab != 2:
             st.session_state.active_tab = 2
             st.rerun()

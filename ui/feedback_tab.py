@@ -43,7 +43,7 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
             review_completed = True
             logger.info("Review completed: sufficient review")
         
-        # New check: If all issues were found, mark as completed
+        # Check for all errors identified - HIGHEST PRIORITY CHECK
         if state.review_history and len(state.review_history) > 0:
             latest_review = state.review_history[-1]
             analysis = latest_review.analysis if hasattr(latest_review, 'analysis') else {}
@@ -53,6 +53,9 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
             
             if identified_count == total_problems and total_problems > 0:
                 review_completed = True
+                if not hasattr(state, 'review_sufficient') or not state.review_sufficient:
+                    # Ensure state is consistent
+                    state.review_sufficient = True
                 logger.info(f"Review completed: all {total_problems} issues identified")
 
     # Block access if review not completed
@@ -109,47 +112,53 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
     latest_analysis = latest_review.analysis if latest_review else None
     
     # Update user statistics if AuthUI is provided and we have analysis
-    if auth_ui and latest_analysis:
-        # Create a unique update key for this specific review
+    if auth_ui and latest_analysis:       
         current_iteration = getattr(state, 'current_iteration', 1) 
         identified_count = latest_analysis.get("identified_count", 0)
         stats_key = f"stats_updated_{current_iteration}_{identified_count}"
-        
-        if stats_key not in st.session_state:
-            try:
-                # Extract accuracy and identified_count from the latest review
-                accuracy = latest_analysis.get("identified_percentage", 0)
+    
+    if stats_key not in st.session_state:
+        try:
+            # Extract accuracy and identified_count from the latest review
+            accuracy = latest_analysis.get("identified_percentage", 0)
+            
+            # Log details before update
+            logger.info(f"Preparing to update stats: accuracy={accuracy:.1f}%, " + 
+                    f"score={identified_count} (identified count), key={stats_key}")
+            
+            # Update user stats with identified_count as score
+            result = auth_ui.update_review_stats(accuracy, identified_count)
+            
+            # Store the update result for debugging
+            st.session_state[stats_key] = result
+            
+            # Log the update result
+            if result and result.get("success", False):
+                logger.info(f"Successfully updated user statistics: {result}")
                 
-                # Log details before update
-                logger.info(f"Preparing to update stats: accuracy={accuracy:.1f}%, " + 
-                        f"score={identified_count} (identified count), key={stats_key}")
+                # Add explicit UI message about the update
+                st.success(f"Statistics updated! Added {identified_count} to your score.")
                 
-                # Update user stats with identified_count as score
-                result = auth_ui.update_review_stats(accuracy, identified_count)
+                # Show level promotion message if level changed
+                if result.get("level_changed", False):
+                    old_level = result.get("old_level", "").capitalize()
+                    new_level = result.get("new_level", "").capitalize()
+                    st.balloons()  # Add visual celebration effect
+                    st.success(f"🎉 Congratulations! Your level has been upgraded from {old_level} to {new_level}!")
                 
-                # Store the update result for debugging
-                st.session_state[stats_key] = result
+                # Give the database a moment to complete the update
+                time.sleep(0.5)
                 
-                # Log the update result
-                if result and result.get("success", False):
-                    logger.info(f"Successfully updated user statistics: {result}")
-                    
-                    # Add explicit UI message about the update
-                    st.success(f"Statistics updated! Added {identified_count} to your score.")
-                    
-                    # Give the database a moment to complete the update
-                    time.sleep(0.5)
-                    
-                    # Force UI refresh after successful update
-                    st.rerun()
-                else:
-                    err_msg = result.get('error', 'Unknown error') if result else "No result returned"
-                    logger.error(f"Failed to update user statistics: {err_msg}")
-                    st.error(f"Failed to update statistics: {err_msg}")
-            except Exception as e:
-                logger.error(f"Error updating user statistics: {str(e)}")
-                logger.error(traceback.format_exc())
-                st.error(f"Error updating statistics: {str(e)}")
+                # Force UI refresh after successful update
+                st.rerun()
+            else:
+                err_msg = result.get('error', 'Unknown error') if result else "No result returned"
+                logger.error(f"Failed to update user statistics: {err_msg}")
+                st.error(f"Failed to update statistics: {err_msg}")
+        except Exception as e:
+            logger.error(f"Error updating user statistics: {str(e)}")
+            logger.error(traceback.format_exc())
+            st.error(f"Error updating statistics: {str(e)}")
     
     # Display feedback results
     feedback_display_ui.render_results(

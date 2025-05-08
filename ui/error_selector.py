@@ -55,8 +55,8 @@ class ErrorSelectorUI:
     
     def render_category_selection(self, all_categories: Dict[str, List[str]]) -> Dict[str, List[str]]:
         """
-        Render the error category selection UI for advanced mode with enhanced debugging.
-        Each error category from Java_code_review_errors.json is displayed as a checkbox.
+        Render the error category selection UI for advanced mode with enhanced styling and layout.
+        Each error category from Java_code_review_errors.json is displayed as a visually distinct card.
         
         Args:
             all_categories: Dictionary with 'java_errors' categories
@@ -64,13 +64,12 @@ class ErrorSelectorUI:
         Returns:
             Dictionary with selected categories
         """
-        st.subheader("Select Specific Error Categories")
+        st.subheader("Select Error Categories")
         
         # Add help text explaining how this mode works
         st.info("""
         **Advanced Mode**: Select specific error categories to include in the generated code. 
-        When you select a category, the system will randomly choose errors from that category 
-        to include in the generated code.
+        The system will randomly choose errors from your selected categories.
         """)
         
         java_error_categories = all_categories.get("java_errors", [])
@@ -81,54 +80,100 @@ class ErrorSelectorUI:
         if "java_errors" not in st.session_state.selected_error_categories:
             st.session_state.selected_error_categories["java_errors"] = []
         
-        
-        # Create a multi-column layout for categories
-        cols = st.columns(2)
-        
         # Get the current selection state from session
         current_selections = st.session_state.selected_error_categories.get("java_errors", [])
         
-        # Split the categories into two columns
-        half_length = len(java_error_categories) // 2
-        for i, col in enumerate(cols):
-            start_idx = i * half_length
-            end_idx = start_idx + half_length if i == 0 else len(java_error_categories)
-            
-            with col:
-                for category in java_error_categories[start_idx:end_idx]:
-                    # Create a unique key for this category
-                    category_key = f"java_{category}"
-                    
-                    # Check if category is already selected from session state
-                    is_selected = category in current_selections
-                    
-                    # Create the checkbox
-                    selected = st.checkbox(
-                        category,
-                        key=category_key,
-                        value=is_selected
-                    )
-                    
-                    # Update selection state based on checkbox
-                    if selected:
-                        if category not in current_selections:
-                            current_selections.append(category)
-                    else:
-                        if category in current_selections:
-                            current_selections.remove(category)
+        # Use a card-based grid layout for categories
+        st.markdown('<div class="problem-area-grid">', unsafe_allow_html=True)
         
-        # Update selections in session state
-        st.session_state.selected_error_categories["java_errors"] = current_selections
+        # Define category icons and descriptions for better visual appeal
+        category_info = {
+            "Logical": {
+                "icon": "🧠",
+                "description": "Issues with program logic, calculations, and flow control"
+            },
+            "Syntax": {
+                "icon": "🔍",
+                "description": "Java language syntax and structure errors"
+            },
+            "Code Quality": {
+                "icon": "✨",
+                "description": "Style, readability, and maintainability issues"
+            },
+            "Standard Violation": {
+                "icon": "📏",
+                "description": "Violations of Java conventions and best practices"
+            },
+            "Java Specific": {
+                "icon": "☕",
+                "description": "Issues specific to Java language features"
+            }
+        }
+        
+        # Generate cards for each category
+        for category in java_error_categories:
+            # Create a unique key for this category
+            category_key = f"java_{category}"
+            
+            # Check if category is already selected from session state
+            is_selected = category in current_selections
+            
+            # Get icon and description
+            icon = category_info.get(category, {}).get("icon", "📁")
+            description = category_info.get(category, {}).get("description", "Error category")
+            
+            # Create a card with toggle effect for each category
+            selected_class = "selected" if is_selected else ""
+            st.markdown(f"""
+            <div class="problem-area-card {selected_class}" id="{category_key}_card" 
+                onclick="this.classList.toggle('selected'); 
+                        document.getElementById('{category_key}_checkbox').click();">
+                <div class="problem-area-title">
+                    {icon} {category}
+                    <span class="icon">{'✓' if is_selected else ''}</span>
+                </div>
+                <p class="problem-area-description">{description}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Hidden checkbox to track state (will be clicked by the card's onclick handler)
+            selected = st.checkbox(
+                category,
+                key=category_key,
+                value=is_selected,
+                label_visibility="collapsed"  # Hide the actual checkbox
+            )
+            
+            # Update selection state based on checkbox
+            if selected:
+                if category not in current_selections:
+                    current_selections.append(category)
+            else:
+                if category in current_selections:
+                    current_selections.remove(category)
+        
+        # Close the grid container
+        st.markdown('</div>', unsafe_allow_html=True)
         
         # Selection summary
         st.write("### Selected Categories")
         if not current_selections:
             st.warning("No categories selected. You must select at least one category to generate code.")
-        
-        if current_selections:
-            st.write("Java Error Categories:")
+        else:
+            # Display selected categories with visual enhancements
+            st.markdown('<div class="selected-categories">', unsafe_allow_html=True)
             for category in current_selections:
-                st.markdown(f"<div class='error-category'>{category}</div>", unsafe_allow_html=True)
+                icon = category_info.get(category, {}).get("icon", "📁")
+                st.markdown(f"""
+                <div class="selected-category-item">
+                    <span class="category-icon">{icon}</span>
+                    <span class="category-name">{category}</span>
+                </div>
+                """, unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Update selections in session state
+        st.session_state.selected_error_categories["java_errors"] = current_selections
         
         return st.session_state.selected_error_categories
     
@@ -152,9 +197,12 @@ class ErrorSelectorUI:
         # Container for selected errors
         if "selected_specific_errors" not in st.session_state:
             st.session_state.selected_specific_errors = []
+
+        #tab_labels = [f"{i+1} {category}" for i, category in enumerate(java_error_categories)]
             
         # Create tabs for each error category
         error_tabs = st.tabs(java_error_categories)
+
         # For each category tab
         for i, category in enumerate(java_error_categories):
             with error_tabs[i]:
@@ -268,12 +316,6 @@ class ErrorSelectorUI:
                 if "selected_specific_errors" not in st.session_state:
                     st.session_state.selected_specific_errors = []
         
-              
-        # Show help text for the selected mode
-        if st.session_state.error_selection_mode == "advanced":
-            st.info("Advanced mode: Select specific error categories like LogicalErrors or NamingConventionChecks. The system will randomly select errors from these categories.")
-        else:
-            st.info("Specific mode: Choose exactly which errors will appear in the generated code.")
         
         return st.session_state.error_selection_mode
     
