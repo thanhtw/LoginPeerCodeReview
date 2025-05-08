@@ -148,7 +148,7 @@ class JavaCodeReviewGraph:
         Get all available error categories.
         
         Returns:
-            Dictionary with 'build' and 'checkstyle' categories
+            Dictionary with error categories
         """
         # Delegate to error repository - use the correct method name
         return self.error_repository.get_all_categories()

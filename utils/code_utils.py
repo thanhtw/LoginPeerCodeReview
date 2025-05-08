@@ -946,10 +946,9 @@ def get_error_count_from_state(state: Any, difficulty_level: str = "medium") -> 
     if hasattr(state, 'selected_error_categories'):
         selected_categories = state.selected_error_categories
         if selected_categories:
-            build_errors = selected_categories.get("build", [])
-            checkstyle_errors = selected_categories.get("checkstyle", [])
+            java_errors = selected_categories.get("java_errors", [])
             # Use at least one error per selected category
-            category_count = len(build_errors) + len(checkstyle_errors)
+            category_count = len(java_errors)
             if category_count > 0:
                 return max(category_count, 2)  # Ensure at least 2 errors
     

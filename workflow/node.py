@@ -144,8 +144,7 @@ class WorkflowNodes:
                 code=annotated_code,  # Store annotated version with error comments
                 clean_code=clean_code,  # Store clean version without error comments
                 raw_errors={
-                    "build": [e for e in selected_errors if e["type"].lower() == "build"],
-                    "checkstyle": [e for e in selected_errors if e["type"].lower() == "checkstyle"]
+                    "java_errors": selected_errors
                 },
                 expected_error_count=original_error_count  # Store the original error count in the code snippet
             )
@@ -211,8 +210,7 @@ class WorkflowNodes:
                     code=annotated_code,
                     clean_code=clean_code,
                     raw_errors={
-                        "build": [e for e in requested_errors if e.get("type") == "build"],
-                        "checkstyle": [e for e in requested_errors if e.get("type") == "checkstyle"]
+                        "java_errors": selected_errors
                     }
                 )
                 
@@ -514,14 +512,14 @@ class WorkflowNodes:
                 logger.warning(f"Expected dict for raw_errors, got {type(raw_errors)}")
                 return requested_errors
             
-            # Extract errors from each type
-            for error_type, errors in raw_errors.items():
-                # Type check for errors list
+            # Extract errors from java_errors key
+            if "java_errors" in raw_errors:
+                errors = raw_errors["java_errors"]
                 if not isinstance(errors, list):
-                    logger.warning(f"Expected list for errors of type {error_type}, got {type(errors)}")
-                    continue
+                    logger.warning(f"Expected list for java_errors, got {type(errors)}")
+                    return requested_errors
                     
-                # Type check each error and add to requested_errors
+                # Process each error
                 for error in errors:
                     if not isinstance(error, dict):
                         logger.warning(f"Expected dict for error, got {type(error)}")
@@ -529,7 +527,7 @@ class WorkflowNodes:
                     
                     # Make sure the error has required fields
                     if "type" not in error:
-                        error["type"] = error_type  # Use the key as type if not specified
+                        error["type"] = "java_error"  # Use a default type if not specified
                     
                     if "name" not in error and "error_name" in error:
                         error["name"] = error["error_name"]  # Use error_name as name if available
