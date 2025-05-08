@@ -235,15 +235,8 @@ class JsonErrorRepository:
         }
         adjusted_count = error_counts.get(difficulty.lower(), count)
         
-        # Debug info
-        print("\n========== GET_ERRORS_FOR_LLM ==========")
-        print(f"Difficulty: {difficulty}")
-        print(f"Original count: {count}, Adjusted count: {adjusted_count}")
-        
         # If specific errors are provided, use those
         if specific_errors and len(specific_errors) > 0:
-            print("Selection Method: Using specific errors")
-            print(f"Number of specific errors: {len(specific_errors)}")
             
             # Format problem descriptions
             problem_descriptions = []

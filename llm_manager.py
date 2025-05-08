@@ -192,7 +192,7 @@ class LLMManager:
             response = chat.invoke([HumanMessage(content="test")])
             
             # If we get here, the connection is successful
-            return True, "Connected to Groq API successfully"
+            return True, f"Connected to Groq API successfully"
             
         except Exception as e:
             error_message = str(e)

@@ -18,6 +18,7 @@ from typing import Dict, List, Any, Optional, Callable
 from utils.llm_logger import LLMInteractionLogger
 from llm_manager import LLMManager
 from state_schema import WorkflowState
+from utils.language_utils import t, get_current_language
 
 # Configure logging
 logging.getLogger('streamlit').setLevel(logging.ERROR)
@@ -238,13 +239,13 @@ def render_sidebar(llm_manager, workflow):
     """
     with st.sidebar:
         # LLM Provider info
-        st.subheader("LLM Provider")
+        st.subheader(f"LLM {t('provider')}")
         provider = llm_manager.provider.capitalize()
         
         if provider == "Ollama":
             connection_status, message = llm_manager.check_ollama_connection()
             status = "✅ Connected" if connection_status else "❌ Disconnected"
-            st.markdown(f"**Provider:** {provider}  \n**Status:** {status}")
+            st.markdown(f"**{t('provider')}:** {provider}  \n**{t('status')}:** {status}")
             
             if not connection_status:
                 st.error(f"Error: {message}")
@@ -257,7 +258,7 @@ def render_sidebar(llm_manager, workflow):
         elif provider == "Groq":
             connection_status, message = llm_manager.check_groq_connection()
             status = "✅ Connected" if connection_status else "❌ Disconnected"
-            st.markdown(f"**Provider:** {provider}  \n**Status:** {status}")
+            st.markdown(f"**{t('provider')}:** {provider}  \n**{t('status')}:** {status}")
             
             if not connection_status:
                 st.error(f"Error: {message}")                

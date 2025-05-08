@@ -9,6 +9,7 @@ import streamlit as st
 import logging
 import os
 from typing import Dict, Any, Optional, Tuple, List, Callable
+from utils.language_utils import t, get_current_language
 
 # Configure logging
 logging.basicConfig(
@@ -61,31 +62,31 @@ class ProviderSelectorUI:
         
         # Create a modal-like UI for provider setup
         with st.container():
-            st.markdown("<h2 style='text-align: center;'>LLM Provider Setup</h2>", unsafe_allow_html=True)
-            st.markdown("<p style='text-align: center;'>Please select the LLM provider you want to use</p>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='text-align: center;'>{t('llm_provider_setup')}</h2>", unsafe_allow_html=True)
+            st.markdown(f"<p style='text-align: center;'>{t('please_select_LLM')}</p>", unsafe_allow_html=True)
             
             # Provider selection
-            provider_options = ["Ollama (Local)", "Groq API (Cloud)"]
+            provider_options = [f"{t('ollama_mode')}", f"{t('groq_mode')}"]
             selected_option = st.radio(
-                "Select LLM Provider", 
+                f"{t('select_LLM')}", 
                 options=provider_options,
                 index=0 if self.llm_manager.provider == "ollama" else 1,
                 horizontal=True
             )
             
             # Convert selection to provider name
-            provider = "ollama" if selected_option == "Ollama (Local)" else "groq"
+            provider = "ollama" if selected_option == f"{t('ollama_mode')}" else "groq"
             
             # Configuration based on provider
             if provider == "ollama":
-                st.info("Ollama will use locally hosted models running on your machine.")
+                st.info(f"{t('select_ollama')}")
                 
                 # Check Ollama connection
                 connection_status, message = self.llm_manager.check_ollama_connection()
                 if connection_status:
-                    st.success("✅ Connected to Ollama")
+                    st.success(f"✅ {t('connected_ollama')}")
                 else:
-                    st.error(f"❌ Cannot connect to Ollama: {message}")
+                    st.error(f"❌ {t('ollama_error')}: {message}")
                     st.markdown("""
                     ### Troubleshooting
                     
@@ -95,7 +96,7 @@ class ProviderSelectorUI:
                     """)
                 
                 # Ollama setup button
-                if st.button("Use Ollama"):
+                if st.button(f"{t('use_ollama')}"):
                     # Set provider explicitly - this will update the environment variable
                     success = self.llm_manager.set_provider("ollama")
                     
@@ -108,11 +109,11 @@ class ProviderSelectorUI:
                         st.session_state.provider_selection["setup_error"] = "Failed to set up Ollama provider"
                     
             else:  # Groq
-                st.info("Groq API uses cloud-hosted models and requires an API key.")
+                st.info(f"{t('groq_api_message')}")
                 
                 # API key input
                 api_key = st.text_input(
-                    "Groq API Key", 
+                    f"{t('groq_api_key')}", 
                     value=st.session_state.provider_selection.get("groq_api_key", ""),
                     type="password",
                     help="Get your API key from https://console.groq.com/"
@@ -122,31 +123,26 @@ class ProviderSelectorUI:
                 st.session_state.provider_selection["groq_api_key"] = api_key
                 
                 # Test connection button
-                if st.button("Test Connection"):
+                if st.button(f"{t('test_connection')}"):
                     if not api_key:
-                        st.error("API key is required for Groq")
+                        st.error(f"{t('api_key_required')}")
                     else:
                         # Set provider with API key
                         success = self.llm_manager.set_provider("groq", api_key)
                         
                         if success:
-                            st.success("✅ Connected to Groq API successfully")
+                            st.success(f"✅ {t('connect_groq_success')}")
                             st.session_state.provider_selection["provider"] = "groq"
                             st.session_state.provider_selection["setup_complete"] = True
                             st.session_state.provider_selection["setup_error"] = None
                             st.rerun()
                         else:
-                            st.error("❌ Failed to connect to Groq API. Please check your API key.")
+                            st.error(f"❌ {t('connect_groq_failed')}")
                             st.session_state.provider_selection["setup_error"] = "Failed to connect to Groq API"
             
             # Display setup error if any
             if st.session_state.provider_selection.get("setup_error"):
                 st.error(st.session_state.provider_selection["setup_error"])
-            
-            # Skip for now option
-            if st.button("Skip for now"):
-                st.session_state.provider_selection["show_setup_modal"] = False
-                return False
         
         # Return True if setup is complete, False otherwise
         return st.session_state.provider_selection.get("setup_complete", False)
@@ -154,7 +150,7 @@ class ProviderSelectorUI:
     def render_provider_status(self):
         """Render the current provider status in the sidebar."""
         with st.sidebar:
-            st.subheader("LLM Provider Status")
+            st.subheader(f"LLM {t('provider')} {t('status')}")
             
             # Display current provider
             provider = self.llm_manager.provider
@@ -169,7 +165,7 @@ class ProviderSelectorUI:
                     st.error("Not connected to Ollama")
             
             elif provider == "groq":
-                st.info("☁️ Using Groq API (cloud)")
+                st.info(f"☁️ {t('using_groq')}")
                 
                 # Check connection status
                 connection_status, _ = self.llm_manager.check_groq_connection()
@@ -177,12 +173,12 @@ class ProviderSelectorUI:
                     # Display masked API key
                     api_key = self.llm_manager.groq_api_key
                     masked_key = f"{api_key[:4]}...{api_key[-4:]}" if len(api_key) > 8 else "Not set"
-                    st.success(f"Connected to Groq API (Key: {masked_key})")
+                    st.success(f"{t('connected_groq')} (Key: {masked_key})")
                 else:
                     st.error("Not connected to Groq API")
             
             # Button to change provider
-            if st.button("Change Provider"):
+            if st.button(f"{t('change_provider')}"):
                 # Reset provider setup
                 st.session_state.provider_selection["setup_complete"] = False
                 st.session_state.provider_selection["show_setup_modal"] = True

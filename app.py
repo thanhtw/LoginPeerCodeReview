@@ -17,7 +17,7 @@ from state_schema import WorkflowState
 from static.css_utils import load_css
 
 # Import language utilities
-from utils.language_utils import init_language, render_language_selector, t
+from utils.language_utils import init_language, render_language_selector, t, get_llm_instructions
 
 # Configure logging
 logging.getLogger('streamlit').setLevel(logging.ERROR)

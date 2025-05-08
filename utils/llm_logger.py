@@ -101,7 +101,7 @@ class LLMInteractionLogger:
             try:
                 json_str = match.group(1)
                 parsed = json.loads(json_str)
-                return f"```json\n{json.dumps(parsed, indent=2)}\n```"
+                return f"```json\n{json.dumps(parsed,ensure_ascii=False, indent=2)}\n```"
             except:
                 return match.group(0)
                 
@@ -178,7 +178,7 @@ class LLMInteractionLogger:
             with open(text_file, 'w', encoding='utf-8') as f:
                 f.write(f"TIMESTAMP: {timestamp}\n")
                 f.write(f"TYPE: {interaction_type}\n")
-                f.write(f"METADATA: {json.dumps(metadata or {}, indent=2)}\n\n")
+                f.write(f"METADATA: {json.dumps(metadata or {},ensure_ascii=False, indent=2)}\n\n")
                 f.write("=== PROMPT ===\n\n")
                 f.write(formatted_prompt)
                 f.write("\n\n=== RESPONSE ===\n\n")

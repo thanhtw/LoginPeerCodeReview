@@ -335,20 +335,20 @@ class ErrorSelectorUI:
         
         # Set appropriate difficulty based on normalized user level
         difficulty_mapping = {
-            "basic": "easy",
-            "medium": "medium", 
-            "senior": "hard"
+            "basic": f"{t('easy')}",
+            "medium": f"{t('medium')}",
+            "senior": f"{t('hard')}"
         }
         difficulty_level = difficulty_mapping.get(normalized_level, "medium")
         
         # Set code length based on difficulty
         length_mapping = {
-            "easy": "short",
-            "medium": "medium",
-            "hard": "long"
+           f"{t('easy')}": f"{t('short')}",
+           f"{t('medium')}": f"{t('medium')}",
+           f"{t('hard')}": f"{t('long')}"
         }
         code_length = length_mapping.get(difficulty_level, "medium")
-        
+       
         # Update session state for consistency
         st.session_state.difficulty_level = difficulty_level.capitalize()
         st.session_state.code_length = code_length.capitalize()

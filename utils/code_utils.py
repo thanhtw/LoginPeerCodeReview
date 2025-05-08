@@ -11,6 +11,7 @@ import os
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 from langchain_core.language_models import BaseLanguageModel
+from utils.language_utils import get_llm_instructions, get_current_language
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -125,10 +126,13 @@ def create_code_generation_prompt(code_length: str, difficulty_level: str, selec
             """
     
     domain_str = domain or "general"
-    
-    # Create a focused prompt with clear role definition and verification steps
-    prompt = f"""You are an expert Java programming instructor creating educational code with specific deliberate errors for students to practice code review skills.
+    # Get language-specific instructions
+    language_instructions = get_llm_instructions()
 
+    # Create a focused prompt with clear role definition and verification steps
+    prompt = f""" {language_instructions}. You are an expert Java programming instructor creating educational code with specific deliberate errors for students to practice code review skills.
+
+       
         MAIN TASK:
         Generate a {code_length} Java program for a {domain_str} system that contains EXACTLY {error_count} intentional errors for a code review exercise.
 
@@ -194,9 +198,14 @@ def create_evaluation_prompt(code: str, requested_errors: list) -> str:
         error_list.append(f"{i}. {error_type} - {name}: {description}")
     
     error_instructions = "\n".join(error_list)
-    
+
+    # Get language-specific instructions
+    language_instructions = get_llm_instructions()
+
     # Create focused evaluation prompt with clear role definition
-    prompt = f"""As a Java code quality expert, your task is to analyze Java code to determine if it correctly implements specific requested errors.
+    prompt = f""" {language_instructions}. As a Java code quality expert, your task is to analyze Java code to determine if it correctly implements specific requested errors.
+
+            {language_instructions}
 
             MAIN TASK:
             Evaluate if the provided Java code correctly implements EXACTLY {error_count} specific errors that were requested.
@@ -300,8 +309,12 @@ def create_regeneration_prompt(code: str, domain: str, missing_errors: list, fou
     missing_text = "\n".join(f"- {instr}" for instr in missing_instructions)
     found_text = "\n".join(f"- {err}" for err in found_errors)
     
+    # Get language-specific instructions
+    language_instructions = get_llm_instructions()
     # Create improved prompt with clearer instructions and error verification steps
     prompt = f"""You are an educational Java error creator who intentionally introduces specific errors in code for teaching purposes.
+        
+        {language_instructions}
 
         TASK:
         Modify this Java code to have EXACTLY {total_requested} errors - no more, no fewer.
@@ -360,9 +373,14 @@ def create_review_analysis_prompt(code: str, known_problems: list, student_revie
     
     # Format known problems clearly
     problems_text = "\n".join(f"- {problem}" for problem in known_problems)
-    
+
+    # Get language-specific instructions
+    language_instructions = get_llm_instructions()
+
     # Create focused analysis prompt with educational assessment role
     prompt = f"""You are an educational assessment specialist analyzing a student's Java code review skills.
+
+                {language_instructions}
 
                 MAIN TASK:
                 Analyze the student's code review against a set of known issues to evaluate their code review effectiveness.
@@ -474,10 +492,13 @@ def create_feedback_prompt(code: str, known_problems: list, review_analysis: dic
             missed_text += f"- {problem_text}\n"
         else:
             missed_text += f"- {problem}\n"
-    
+
+    # Get language-specific instructions
+    language_instructions = get_llm_instructions()
+
     # Create focused feedback prompt with educational coach role
     prompt = f"""As a Java mentor providing targeted code review guidance, create concise feedback for a student.
-
+                {language_instructions}
                 CONTEXT:
                 - Student completed review attempt {iteration} of {max_iterations}
                 - Found {identified}/{total} issues ({accuracy:.1f}%)
@@ -698,9 +719,14 @@ def create_comparison_report_prompt(evaluation_errors: List[str], review_analysi
         if accuracy > first_acc:
             improvement = accuracy - first_acc
             progress_info += f"\nImprovement: +{improvement:.1f}% from first attempt\n"
-    
+
+    # Get language-specific instructions
+    language_instructions = get_llm_instructions()
+
     # Create the prompt for the LLM
     prompt = f"""You are an educational assessment expert creating a detailed, informative code review feedback report for a Java programming student.
+
+                {language_instructions}
 
                 CONTEXT:
                 The student has conducted a code review exercise, identifying errors in a Java code snippet. Your task is to create a comprehensive, educational report on their performance.

@@ -124,8 +124,7 @@ class AuthUI:
         
         # Header with logo and title
         st.markdown(f"""
-            <div class="auth-header">
-                {logo_html}
+            <div class="auth-header">                
                 <h1 style="color: rgb(178 185 213); margin-bottom: 5px;">{t('app_title')}</h1>
                 <p style="font-size: 1.1rem; color: #666;">{t('app_subtitle')}</p>
             </div>
@@ -225,23 +224,6 @@ class AuthUI:
                     else:
                         st.error(f"{t('registration_failed')}: {result.get('error', t('email_in_use'))}")
             st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Add a demo mode option
-        st.markdown(f'<div class="demo-section">', unsafe_allow_html=True)
-        st.subheader(t("demo_mode"))
-        st.markdown(f"<p>{t('continue_demo')}</p>", unsafe_allow_html=True)
-        if st.button(t("continue_demo"), use_container_width=True, key="demo_button"):
-            # Set a demo user for testing
-            st.session_state.auth["is_authenticated"] = True
-            st.session_state.auth["user_id"] = "demo-user"
-            st.session_state.auth["user_info"] = {
-                "display_name": "Demo User",
-                "email": "demo@example.com",
-                "level": "basic"
-            }
-            return True
-        st.markdown('</div>', unsafe_allow_html=True)
-        
         # Close main container
         st.markdown('</div>', unsafe_allow_html=True)
         
@@ -256,9 +238,7 @@ class AuthUI:
         # Get user info
         user_info = st.session_state.auth.get("user_info", {})
         display_name = user_info.get("display_name", "User")
-        level = user_info.get("level", "basic").capitalize()
-
-        st.sidebar.title("Java Review Trainer")
+        level = user_info.get("level", "basic").capitalize()     
         
         # Add styled profile section
         st.sidebar.markdown("""
