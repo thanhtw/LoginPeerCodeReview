@@ -13,16 +13,12 @@ from typing import List, Dict, Any, Optional, Tuple
 from langchain_core.language_models import BaseLanguageModel
 from utils.language_utils import get_llm_instructions, get_current_language
 
+# Import prompt templates
+from prompts import get_prompt_template
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-"""
-Optimized prompting strategies for the Java Peer Review Training System.
-
-This module provides streamlined prompts for code generation, evaluation,
-and review analysis to reduce token usage while maintaining quality.
-"""
 
 def add_line_numbers(code: str) -> str:
     """
@@ -51,6 +47,7 @@ def create_code_generation_prompt(code_length: str, difficulty_level: str, selec
     """
     Create a concise prompt for generating Java code with intentional errors.
     Enhanced to emphasize the exact number of errors required and ensure one per error type.
+    Now uses language-specific templates based on current language.
     
     Args:
         code_length: Length of code (short, medium, long)
@@ -89,95 +86,32 @@ def create_code_generation_prompt(code_length: str, difficulty_level: str, selec
     # Join errors with clear separation
     error_instructions = "\n\n".join(error_list)
     
-    # Add difficulty-specific instructions
-    difficulty_instructions = ""
+    # Get language-specific difficulty instructions template
     if difficulty_level.lower() == "easy":
-        difficulty_instructions = """
-            BEGINNER-FRIENDLY CODE REQUIREMENTS:
-            - Use very descriptive variable/method names (studentName, calculateTotal)
-            - Keep methods short (3-10 lines each) and focused on a single task
-            - Use basic control structures (if/else, simple loops) with clear conditions
-            - Include helpful comments explaining the code's purpose
-            - Avoid complex nested structures or advanced Java features
-            - Make errors relatively obvious for educational purposes
-            - Implement errors in a way that beginners can reasonably identify them
-            """
+        difficulty_instructions = get_prompt_template("beginner_instructions")
     elif difficulty_level.lower() == "medium":
-        difficulty_instructions = """
-            INTERMEDIATE-LEVEL CODE REQUIREMENTS:
-            - Use a mix of simple and moderately complex code structures
-            - Include a variety of control structures and data types
-            - Keep methods reasonably sized (5-15 lines)
-            - Implement some errors that require careful reading to identify
-            - Add appropriate documentation where needed
-            - Create realistic code that might appear in a small application
-            - Balance obvious errors with some more subtle ones
-            """
+        difficulty_instructions = get_prompt_template("intermediate_instructions")
     else:  # hard
-        difficulty_instructions = """
-            ADVANCED-LEVEL CODE REQUIREMENTS:
-            - Create more sophisticated code structures with appropriate complexity
-            - Implement errors that might be hidden in logical flow or edge cases
-            - Use a variety of Java features and design patterns when appropriate
-            - Challenge the student to think deeply about the code
-            - Include subtle errors that require careful analysis to identify
-            - Create realistic code that follows good structure despite the errors
-            - Implement errors that interact with each other in non-obvious ways
-            """
+        difficulty_instructions = get_prompt_template("advanced_instructions")
     
     domain_str = domain or "general"
+    
     # Get language-specific instructions
     language_instructions = get_llm_instructions()
-
-    # Create a focused prompt with clear role definition and verification steps
-    prompt = f""" {language_instructions}. You are an expert Java programming instructor creating educational code with specific deliberate errors for students to practice code review skills.
-
-       
-        MAIN TASK:
-        Generate a {code_length} Java program for a {domain_str} system that contains EXACTLY {error_count} intentional errors for a code review exercise.
-
-        CODE STRUCTURE REQUIREMENTS:
-        - Create {complexity}
-        - Make the code realistic, well-structured, and appropriate for a {domain_str} application
-        - Follow standard Java conventions for all correct parts of the code
-        - The code should look professional except for the deliberate errors
-
-        {difficulty_instructions}
-
-        ERROR IMPLEMENTATION REQUIREMENTS:
-        - Implement EXACTLY {error_count} errors - this is CRITICAL (no more, no fewer)
-        - Only implement the SPECIFIC errors listed below
-        - Each error must be an actual Java error, not just a comment
-        - In the annotated version, mark each error with a comment: // ERROR: [TYPE] - [NAME] - [Brief explanation]
-        - NEVER add comments like "// added to fix" or "// this is incorrect" - the errors are meant to remain as errors!
-        - Ensure errors are findable through code review (not just runtime errors)
-
-        EXACTLY {error_count} ERRORS TO IMPLEMENT:
-
-        {error_instructions}
-
-        VERIFICATION CHECKLIST (COMPLETE BEFORE SUBMITTING):
-        - [ ] Code follows the {code_length}/{difficulty_level} complexity requirements
-        - [ ] Code is realistic and appropriate for a {domain_str} application
-        - [ ] EXACTLY {error_count} errors are implemented (no more, no fewer)
-        - [ ] Each implemented error matches one from the requested list
-        - [ ] All errors are marked with appropriate comments in the annotated version
-        - [ ] The clean version has the same errors but without the comments
-        - [ ] Both versions would compile (except for deliberate compilation errors)
-
-        OUTPUT FORMAT:
-        1. First, provide the ANNOTATED VERSION with error comments:
-        ```java-annotated
-        // Your code with error annotations
-        ```
-
-        2. Then, provide the CLEAN VERSION without any error comments:
-        ```java-clean
-        // The same code with the same errors but no error annotations
-        ```
-
-        IMPORTANT: Verify you have implemented EXACTLY {error_count} errors before completing.
-        """
+    
+    # Get language-specific template
+    template = get_prompt_template("code_generation_template")
+    
+    # Create the prompt by filling in the template
+    prompt = f"{language_instructions}. " + template.format(
+        code_length=code_length,
+        domain_str=domain_str,
+        error_count=error_count,
+        complexity=complexity,
+        difficulty_instructions=difficulty_instructions,
+        error_instructions=error_instructions,
+        difficulty_level=difficulty_level
+    )
     
     return prompt
 
@@ -185,6 +119,14 @@ def create_evaluation_prompt(code: str, requested_errors: list) -> str:
     """
     Create a clear and concise prompt for evaluating whether code contains required errors.
     Improved with detailed evaluation criteria and structured output format.
+    Now uses language-specific templates based on current language.
+    
+    Args:
+        code: The code to evaluate
+        requested_errors: List of errors that should be in the code
+        
+    Returns:
+        Evaluation prompt string
     """
     # Count the exact number of requested errors
     error_count = len(requested_errors)
@@ -202,68 +144,15 @@ def create_evaluation_prompt(code: str, requested_errors: list) -> str:
     # Get language-specific instructions
     language_instructions = get_llm_instructions()
 
-    # Create focused evaluation prompt with clear role definition
-    prompt = f""" {language_instructions}. As a Java code quality expert, your task is to analyze Java code to determine if it correctly implements specific requested errors.
-
-            {language_instructions}
-
-            MAIN TASK:
-            Evaluate if the provided Java code correctly implements EXACTLY {error_count} specific errors that were requested.
-
-            CODE TO EVALUATE:
-            ```java
-            {code}
-            ```
-
-            THE {error_count} SPECIFIC ERRORS THAT SHOULD BE PRESENT:
-            {error_instructions}
-
-            EVALUATION INSTRUCTIONS:
-            1. Examine the code line by line, identifying each error that matches the requested list
-            2. For each error you find, note:
-            - The specific error type and name
-            - The exact line number(s) where it appears
-            - A brief code segment showing the error
-            - A concise explanation of why it matches the requested error
-            3. Check if any requested errors are missing from the code
-            4. For valid implementation, the code must contain EXACTLY {error_count} errors - no more, no fewer
-
-            RESPONSE FORMAT:
-            Your evaluation must be returned in this JSON format:
-
-            ```json
-            {{
-            "found_errors": [
-                {{
-                "error_type": "BUILD",  
-                "error_name": "NullPointerException",
-                "line_number": 42,
-                "code_segment": "String str = null; int length = str.length();",
-                "explanation": "This code will cause a NullPointerException because it calls length() on a null String"
-                }}
-                // List all implemented errors that match the requested list
-            ],
-            "missing_errors": [
-                {{
-                "error_type": "CHECKSTYLE",
-                "error_name": "MemberName",
-                "explanation": "The code doesn't contain any variable names that violate member naming conventions"
-                }}
-                // List all requested errors that aren't implemented
-            ],
-            "valid": true,  // Set to true ONLY if ALL requested errors are implemented, no more and no fewer
-            "feedback": "The code successfully implements all {error_count} requested errors."  // Provide brief overall assessment
-            }}
-            ```
-
-            VERIFICATION CHECKLIST:
-            - Confirm that each found error truly matches the corresponding requested error
-            - Verify that the total count of found errors is EXACTLY {error_count} for validity
-            - Double-check any errors you believe are missing to ensure they're truly absent
-            - Ensure your JSON response is properly formatted for processing
-
-            IMPORTANT: Focus solely on the specified error types and names, not general code quality issues.
-            """
+    # Get language-specific template
+    template = get_prompt_template("evaluation_template")
+    
+    # Create the prompt by filling in the template
+    prompt = f"{language_instructions}. " + template.format(
+        code=code,
+        error_count=error_count,
+        error_instructions=error_instructions
+    )
     
     return prompt
 
@@ -271,95 +160,39 @@ def create_regeneration_prompt(code: str, domain: str, missing_errors: list, fou
     """
     Create a focused prompt for regenerating code with missing errors and removing extra errors.
     Enhanced to provide clear instructions for exact error requirements.
+    Now uses language-specific templates based on current language.
+    
+    Args:
+        code: The original code
+        domain: Domain of the code
+        missing_errors: List of errors that need to be added
+        found_errors: List of errors that are already in the code
+        requested_errors: List of all requested errors
+        
+    Returns:
+        Regeneration prompt string
     """
     # Total requested errors count
     total_requested = len(requested_errors)
     
-    # Create detailed instructions for missing errors
-    missing_instructions = []
-    for error_key in missing_errors:
-        # Find the full error details
-        for error in requested_errors:
-            error_type = error.get("type", "").upper()
-            name = error.get("name", "")
-            key_match = f"{error_type} - {name}" == error_key
-            
-            # Also check for partial matches if exact match fails
-            if not key_match and error_key:
-                # Try to match on error name alone
-                if name and name.lower() in error_key.lower():
-                    key_match = True
-                # Try to match on error type alone
-                elif error_type and error_type.lower() in error_key.lower():
-                    key_match = True
-            
-            if key_match:
-                guide = error.get("implementation_guide", "")
-                description = error.get("description", "")
-                
-                instruction = f"{error_type} - {name}"
-                if description:
-                    instruction += f": {description}"
-                if guide:
-                    instruction += f"\nImplementation: {guide}"
-                missing_instructions.append(instruction)
-                break
-    
     # Format missing and found errors
-    missing_text = "\n".join(f"- {instr}" for instr in missing_instructions)
-    found_text = "\n".join(f"- {err}" for err in found_errors)
+    missing_text = "\n".join(f"- {instr}" for instr in missing_errors) if missing_errors else "No missing errors - all requested errors are already implemented."
+    found_text = "\n".join(f"- {err}" for err in found_errors) if found_errors else "No correctly implemented errors found."
     
     # Get language-specific instructions
     language_instructions = get_llm_instructions()
-    # Create improved prompt with clearer instructions and error verification steps
-    prompt = f"""You are an educational Java error creator who intentionally introduces specific errors in code for teaching purposes.
-        
-        {language_instructions}
-
-        TASK:
-        Modify this Java code to have EXACTLY {total_requested} errors - no more, no fewer.
-        The code must contain ONLY the specific errors requested below.
-
-        ORIGINAL CODE DOMAIN: {domain}
-
-        MISSING ERRORS - INTENTIONALLY add these errors (do NOT fix or solve them):
-        {missing_text if missing_text else "No missing errors - all requested errors are already implemented."}
-
-        EXISTING ERRORS TO KEEP - Do not modify these errors:
-        {found_text if found_text else "No correctly implemented errors found."}
-
-        VERY IMPORTANT INSTRUCTIONS:
-        1. Focus on implementing EXACTLY the requested errors
-        2. NEVER add comments like "// added to fix", "// fixed", or "// corrected" - these errors are meant to remain as errors!
-        3. Do not change the domain or structure of the code
-        4. Errors must be actual Java errors, not just comments about errors
-        5. Use EXACTLY the same {domain} domain and maintain the original code structure
-        6. For each error you add, include a comment in the format: // ERROR: [TYPE] - [NAME] - [Brief explanation]
-        7. Do NOT try to improve or fix the code - it should contain intentional bugs for educational purposes
-        8. The whole purpose is to create flawed code that students will learn to identify problems in
-
-        VERIFICATION STEPS (DO THIS BEFORE SUBMITTING):
-        1. Count the total number of errors in your code, confirm it's EXACTLY {total_requested}
-        2. Verify each missing error from the list is now implemented
-        3. Confirm all existing errors that should be kept are still present and unchanged
-        4. Ensure any extra errors have been removed
-
-        PROVIDE TWO VERSIONS OF THE CODE:
-        1. First, provide the ANNOTATED VERSION with error comments, marked with:
-        ```java-annotated
-        // Your code with intentional errors and error annotations
-        ```
-
-        2. Then, provide the CLEAN VERSION without any error comments, marked with:
-        ```java-clean
-        // The same code with the same intentional errors but no error comments
-        ```
-
-        ORIGINAL CODE:
-        ```java
-        {code}
-        ```
-        """
+    
+    # Get language-specific template
+    template = get_prompt_template("regeneration_template")
+    
+    # Create the prompt by filling in the template
+    prompt = f"{language_instructions}. " + template.format(
+        code=code,
+        domain=domain,
+        missing_text=missing_text,
+        found_text=found_text,
+        total_requested=total_requested
+    )
     
     return prompt
 
@@ -367,6 +200,15 @@ def create_review_analysis_prompt(code: str, known_problems: list, student_revie
     """
     Create an optimized prompt for analyzing student code reviews.
     Enhanced with educational assessment focus and better structured output requirements.
+    Now uses language-specific templates based on current language.
+    
+    Args:
+        code: The code being reviewed
+        known_problems: List of known problems in the code
+        student_review: Student's review text
+        
+    Returns:
+        Review analysis prompt string
     """
     # Count known problems
     problem_count = len(known_problems)
@@ -377,86 +219,16 @@ def create_review_analysis_prompt(code: str, known_problems: list, student_revie
     # Get language-specific instructions
     language_instructions = get_llm_instructions()
 
-    # Create focused analysis prompt with educational assessment role
-    prompt = f"""You are an educational assessment specialist analyzing a student's Java code review skills.
-
-                {language_instructions}
-
-                MAIN TASK:
-                Analyze the student's code review against a set of known issues to evaluate their code review effectiveness.
-
-                CODE BEING REVIEWED:
-                ```java
-                {code}
-                ```
-
-                {problem_count} KNOWN ISSUES IN THE CODE:
-                {problems_text}
-
-                STUDENT'S REVIEW SUBMISSION:
-                ```
-                {student_review}
-                ```
-
-                ANALYSIS INSTRUCTIONS:
-                1. Carefully read both the code and the student's review
-                2. Identify which of the known issues the student correctly found
-                3. Note which known issues the student missed
-                4. Identify any false positives (things the student flagged as issues that aren't actual problems)
-                5. Evaluate the review quality (accuracy, completeness, clarity, and specificity)
-                6. Determine if the review is sufficient (>= 60% of issues correctly identified)
-
-                RESPONSE REQUIREMENTS:
-                Provide your analysis in JSON format with these components:
-
-                ```json
-                {{
-                "identified_problems": [
-                    {{
-                    "problem": "SPECIFIC KNOWN ISSUE TEXT",
-                    "student_comment": "STUDENT'S RELEVANT COMMENT",
-                    "accuracy": 0.9,
-                    "feedback": "Brief feedback on this identification"
-                    }}
-                    // Include all correctly identified issues
-                ],
-                "missed_problems": [
-                    {{
-                    "problem": "SPECIFIC KNOWN ISSUE TEXT",
-                    "hint": "A helpful educational hint for finding this type of issue"
-                    }}
-                    // Include all missed issues
-                ],
-                "false_positives": [
-                    {{
-                    "student_comment": "STUDENT'S INCORRECT COMMENT",
-                    "explanation": "Why this isn't actually an issue"
-                    }}
-                    // Include any incorrect identifications
-                ],
-                "identified_count": 3,  // Number of correctly identified issues
-                "total_problems": {problem_count},  // Total number of known issues
-                "identified_percentage": 60.0,  // Percentage of issues correctly identified
-                "review_quality_score": 7.5,  // Score from 1-10 rating review quality
-                "review_sufficient": true,  // true if >= 60% of issues identified
-                "feedback": "Overall assessment with specific improvement suggestions"
-                }}
-                ```
-
-                EVALUATION CRITERIA:
-                - For matching student comments to known issues, look for:
-                - Correct identification of the issue type
-                - Accurate location (line number or description)
-                - Understanding of why it's a problem
-                - Consider partial credit if they identified an issue but misunderstood it
-                - A review is sufficient if the student correctly identified at least 60% of known issues
-
-                TIPS FOR ANALYSIS:
-                - Be thorough in examining every part of the student's review
-                - Be generous in matching student comments to issues if they show understanding
-                - Provide educational feedback that helps the student improve their code review skills
-                - If the student uses different terminology but correctly identifies an issue, count it as correct
-                """
+    # Get language-specific template
+    template = get_prompt_template("review_analysis_template")
+    
+    # Create the prompt by filling in the template
+    prompt = f"{language_instructions}. " + template.format(
+        code=code,
+        problem_count=problem_count,
+        problems_text=problems_text,
+        student_review=student_review
+    )
     
     return prompt
 
@@ -464,6 +236,15 @@ def create_feedback_prompt(code: str, known_problems: list, review_analysis: dic
     """
     Create an optimized prompt for generating concise, focused guidance on student reviews.
     Enhanced with clearer educational goals and example output.
+    Now uses language-specific templates based on current language.
+    
+    Args:
+        code: The code being reviewed
+        known_problems: List of known problems in the code
+        review_analysis: Analysis of the student's review
+        
+    Returns:
+        Feedback prompt string
     """
     # Extract data from review analysis
     identified = review_analysis.get("identified_count", 0)
@@ -496,39 +277,115 @@ def create_feedback_prompt(code: str, known_problems: list, review_analysis: dic
     # Get language-specific instructions
     language_instructions = get_llm_instructions()
 
-    # Create focused feedback prompt with educational coach role
-    prompt = f"""As a Java mentor providing targeted code review guidance, create concise feedback for a student.
-                {language_instructions}
-                CONTEXT:
-                - Student completed review attempt {iteration} of {max_iterations}
-                - Found {identified}/{total} issues ({accuracy:.1f}%)
-                - {remaining} review attempts remaining
+    # Get language-specific template
+    template = get_prompt_template("feedback_template")
+    
+    # Create the prompt by filling in the template
+    prompt = f"{language_instructions}. " + template.format(
+        iteration=iteration,
+        max_iterations=max_iterations,
+        identified=identified,
+        total=total,
+        accuracy=accuracy,
+        remaining=remaining,
+        identified_text=identified_text or "None",
+        missed_text=missed_text or "None - great job!"
+    )
+    
+    return prompt
 
-                CORRECTLY IDENTIFIED ISSUES:
-                {identified_text or "None"}
+def create_comparison_report_prompt(evaluation_errors: List[str], review_analysis: Dict[str, Any], review_history: List[Dict[str, Any]] = None) -> str:
+    """
+    Create a prompt for generating a comparison report with an LLM.
+    Now uses language-specific templates based on current language.
+    
+    Args:
+        evaluation_errors: List of errors found by the evaluation
+        review_analysis: Analysis of the latest student review
+        review_history: History of all review attempts
+        
+    Returns:
+        Comparison report prompt string
+    """
+    # Extract performance metrics from latest review
+    identified_problems = review_analysis.get("identified_problems", [])
+    missed_problems = review_analysis.get("missed_problems", [])
+    false_positives = review_analysis.get("false_positives", [])
+    
+    # Get total problems count
+    total_problems = (review_analysis.get("total_problems", 0) or 
+                       review_analysis.get("original_error_count", 0) or 
+                       len(evaluation_errors))
+    
+    # Calculate metrics
+    identified_count = len(identified_problems)
+    accuracy = (identified_count / total_problems * 100) if total_problems > 0 else 0
+    
+    # Format the problems for the prompt
+    identified_str = []
+    for problem in identified_problems:
+        if isinstance(problem, dict) and "problem" in problem:
+            identified_str.append(problem["problem"])
+        elif isinstance(problem, str):
+            identified_str.append(problem)
+    
+    missed_str = []
+    for problem in missed_problems:
+        if isinstance(problem, dict) and "problem" in problem:
+            missed_str.append(problem["problem"])
+        elif isinstance(problem, str):
+            missed_str.append(problem)
+    
+    false_str = []
+    for problem in false_positives:
+        if isinstance(problem, dict) and "student_comment" in problem:
+            false_str.append(problem["student_comment"])
+        elif isinstance(problem, str):
+            false_str.append(problem)
+    
+    # Format identified problems for the prompt
+    identified_text = "\n".join(f"- {p}" for p in identified_str)
+    missed_text = "\n".join(f"- {p}" for p in missed_str)
+    false_positive_text = "\n".join(f"- {p}" for p in false_str)
+    
+    # Create progress tracking info if multiple attempts exist
+    progress_info = ""
+    if review_history and len(review_history) > 1:
+        progress_info = "## Progress Across Attempts\n\n"
+        
+        for i, review in enumerate(review_history, 1):
+            analysis = review.get("review_analysis", {})
+            found = analysis.get("identified_count", 0)
+            acc = analysis.get("identified_percentage", 0)
+            progress_info += f"Attempt {i}: Found {found}/{total_problems} issues ({acc:.1f}%)\n"
+        
+        # Compare first vs. latest attempt
+        first = review_history[0].get("review_analysis", {})
+        first_found = first.get("identified_count", 0)
+        first_acc = first.get("identified_percentage", 0)
+        
+        if accuracy > first_acc:
+            improvement = accuracy - first_acc
+            progress_info += f"\nImprovement: +{improvement:.1f}% from first attempt\n"
 
-                MISSED ISSUES:
-                {missed_text or "None - great job!"}
+    # Get language-specific instructions
+    language_instructions = get_llm_instructions()
 
-                TASK:
-                Create brief, specific guidance (3-4 sentences max) to help the student find more issues in their next review attempt.
-
-                GUIDANCE REQUIREMENTS:
-                1. Be extremely concise and focused (max 3-4 short sentences)
-                2. Target the most important 1-2 areas for improvement
-                3. Provide specific, actionable strategies (what to look for)
-                4. Be encouraging but direct
-                5. Focus only on helping them find missed issues, not general code review skills
-
-                EXAMPLE GOOD GUIDANCE:
-                "Look more carefully at method parameters and return types. Several issues involve type mismatches that can be spotted by comparing declared types with actual values. Also check for proper null handling before method calls."
-
-                EXAMPLE POOR GUIDANCE (too general):
-                "Keep trying to find more issues. There are several problems in the code that you missed. Try to be more thorough in your next review attempt."
-
-                RESPONSE FORMAT:
-                Provide ONLY the guidance text with no introduction or explanation.
-                """
+    # Get language-specific template
+    template = get_prompt_template("comparison_report_template")
+    
+    # Create the prompt by filling in the template
+    prompt = f"{language_instructions}. " + template.format(
+        total_problems=total_problems,
+        identified_count=identified_count,
+        accuracy=accuracy,
+        len_missed_str=len(missed_str),
+        len_false_str=len(false_str),
+        identified_text=identified_text or "None - the student didn't identify any correct issues.",
+        missed_text=missed_text or "None - the student identified all issues correctly!",
+        false_positive_text=false_positive_text or "None - the student didn't identify any false issues.",
+        progress_info=progress_info
+    )
     
     return prompt
 
@@ -654,125 +511,6 @@ def generate_comparison_report(evaluation_errors: List[str], review_analysis: Di
     else:
         # If no LLM is provided, use static generation
         return generate_comparison_report_fallback(evaluation_errors, review_analysis, review_history)
-
-def create_comparison_report_prompt(evaluation_errors: List[str], review_analysis: Dict[str, Any], review_history: List[Dict[str, Any]] = None) -> str:
-    """
-    Create a prompt for generating a comparison report with an LLM.
-    """
-    # Extract performance metrics from latest review
-    identified_problems = review_analysis.get("identified_problems", [])
-    missed_problems = review_analysis.get("missed_problems", [])
-    false_positives = review_analysis.get("false_positives", [])
-    
-    # Get total problems count
-    total_problems = (review_analysis.get("total_problems", 0) or 
-                       review_analysis.get("original_error_count", 0) or 
-                       len(evaluation_errors))
-    
-    # Calculate metrics
-    identified_count = len(identified_problems)
-    accuracy = (identified_count / total_problems * 100) if total_problems > 0 else 0
-    
-    # Format the problems for the prompt
-    identified_str = []
-    for problem in identified_problems:
-        if isinstance(problem, dict) and "problem" in problem:
-            identified_str.append(problem["problem"])
-        elif isinstance(problem, str):
-            identified_str.append(problem)
-    
-    missed_str = []
-    for problem in missed_problems:
-        if isinstance(problem, dict) and "problem" in problem:
-            missed_str.append(problem["problem"])
-        elif isinstance(problem, str):
-            missed_str.append(problem)
-    
-    false_str = []
-    for problem in false_positives:
-        if isinstance(problem, dict) and "student_comment" in problem:
-            false_str.append(problem["student_comment"])
-        elif isinstance(problem, str):
-            false_str.append(problem)
-    
-    # Format identified problems for the prompt
-    identified_text = "\n".join(f"- {p}" for p in identified_str)
-    missed_text = "\n".join(f"- {p}" for p in missed_str)
-    false_positive_text = "\n".join(f"- {p}" for p in false_str)
-    
-    # Create progress tracking info if multiple attempts exist
-    progress_info = ""
-    if review_history and len(review_history) > 1:
-        progress_info = "## Progress Across Attempts\n\n"
-        
-        for i, review in enumerate(review_history, 1):
-            analysis = review.get("review_analysis", {})
-            found = analysis.get("identified_count", 0)
-            acc = analysis.get("identified_percentage", 0)
-            progress_info += f"Attempt {i}: Found {found}/{total_problems} issues ({acc:.1f}%)\n"
-        
-        # Compare first vs. latest attempt
-        first = review_history[0].get("review_analysis", {})
-        first_found = first.get("identified_count", 0)
-        first_acc = first.get("identified_percentage", 0)
-        
-        if accuracy > first_acc:
-            improvement = accuracy - first_acc
-            progress_info += f"\nImprovement: +{improvement:.1f}% from first attempt\n"
-
-    # Get language-specific instructions
-    language_instructions = get_llm_instructions()
-
-    # Create the prompt for the LLM
-    prompt = f"""You are an educational assessment expert creating a detailed, informative code review feedback report for a Java programming student.
-
-                {language_instructions}
-
-                CONTEXT:
-                The student has conducted a code review exercise, identifying errors in a Java code snippet. Your task is to create a comprehensive, educational report on their performance.
-
-                PERFORMANCE METRICS:
-                - Total issues in the code: {total_problems}
-                - Issues correctly identified: {identified_count} ({accuracy:.1f}%)
-                - Issues missed: {len(missed_str)}
-                - False positives (things incorrectly flagged as issues): {len(false_str)}
-
-                CORRECTLY IDENTIFIED ISSUES:
-                {identified_text or "None - the student didn't identify any correct issues."}
-
-                MISSED ISSUES:
-                {missed_text or "None - the student identified all issues correctly!"}
-
-                FALSE POSITIVES:
-                {false_positive_text or "None - the student didn't identify any false issues."}
-
-                {progress_info}
-
-                REPORT REQUIREMENTS:
-                1. Create a comprehensive educational report in markdown format
-                2. Include these sections:
-                - Performance Summary (with metrics and overall assessment)
-                - Correctly Identified Issues (with praise for what they found correctly)
-                - Missed Issues (with educational explanations of why they matter)
-                - False Positives (if any, with explanations of why these aren't actual issues)
-                - Progress Analysis (if multiple attempts, analyzing their improvement)
-                - Tips for Improvement (specific, actionable advice based on their performance)
-
-                3. Be educational and constructive, not just evaluative
-                4. Use a warm, encouraging tone while maintaining honesty about areas for improvement
-                5. Focus on helping them become a better code reviewer, not just scoring this attempt
-                6. Highlight patterns in what they missed or found to help them improve systematically
-                7. Include specific Java code review tips relevant to their performance
-                8. Make the report visually readable with appropriate markdown formatting
-
-                IMPORTANT FORMATTING:
-                - Use markdown for clear organization (headers, bullet points, etc.)
-                - Format code snippets in markdown code blocks if referring to specific code
-                - Use bold or italic text for emphasis where appropriate
-                - Keep paragraphs reasonably short for readability
-                """
-    
-    return prompt
 
 def generate_comparison_report_fallback(evaluation_errors: List[str], review_analysis: Dict[str, Any], 
                               review_history: List[Dict[str, Any]] = None) -> str:
