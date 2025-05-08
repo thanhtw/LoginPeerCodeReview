@@ -29,7 +29,6 @@ class CodeDisplayUI:
             st.info("No code generated yet. Use the 'Generate Code Problem' tab to create a Java code snippet.")
             return
 
-        st.subheader("Java Code to Review:")
         if isinstance(code_snippet, str):
             display_code = code_snippet
         else:

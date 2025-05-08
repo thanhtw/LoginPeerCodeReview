@@ -65,7 +65,13 @@ def get_prompt_template(template_name: str, lang_code: str = None) -> str:
     
     # Get the template from the module
     if hasattr(prompt_module, template_name):
-        return getattr(prompt_module, template_name)
+        template = getattr(prompt_module, template_name)
+        # Ensure the template is treated as a raw string
+        # This helps prevent escape sequence issues
+        if not isinstance(template, str):
+            logger.warning(f"Template '{template_name}' is not a string")
+            return ""
+        return template
     
     # Log warning and return empty string if template not found
     logger.warning(f"Prompt template '{template_name}' not found in language '{lang_code}'")
@@ -79,3 +85,26 @@ def get_prompt_template(template_name: str, lang_code: str = None) -> str:
     
     # Return empty string if template not found in any language
     return ""
+
+def invoke_llm_safely(llm, prompt, default_response="Error: Could not generate response"):
+    """
+    Safely invoke an LLM with proper error handling.
+    
+    Args:
+        llm: Language model to invoke
+        prompt: Prompt to send to the LLM
+        default_response: Default response if invocation fails
+        
+    Returns:
+        LLM response or default response if invocation fails
+    """
+    if not llm:
+        logger.warning("No LLM available for invocation")
+        return default_response
+        
+    try:
+        response = llm.invoke(prompt)
+        return response
+    except Exception as e:
+        logger.error(f"Error invoking LLM: {str(e)}")
+        return default_response

@@ -115,28 +115,28 @@ RESPONSE FORMAT:
 Your evaluation must be returned in this JSON format:
 
 ```json
-{
+{{
 "found_errors": [
-    {
+    {{
     "error_type": "BUILD",  
     "error_name": "NullPointerException",
     "line_number": 42,
     "code_segment": "String str = null; int length = str.length();",
     "explanation": "This code will cause a NullPointerException because it calls length() on a null String"
-    }
+    }}
     // List all implemented errors that match the requested list
 ],
 "missing_errors": [
-    {
+    {{
     "error_type": "CHECKSTYLE",
     "error_name": "MemberName",
     "explanation": "The code doesn't contain any variable names that violate member naming conventions"
-    }
+    }}
     // List all requested errors that aren't implemented
 ],
 "valid": true,  // Set to true ONLY if ALL requested errors are implemented, no more and no fewer
 "feedback": "The code successfully implements all {error_count} requested errors."  // Provide brief overall assessment
-}
+}}
 ```
 
 VERIFICATION CHECKLIST:
@@ -146,54 +146,6 @@ VERIFICATION CHECKLIST:
 - Ensure your JSON response is properly formatted for processing
 
 IMPORTANT: Focus solely on the specified error types and names, not general code quality issues.
-"""
-
-# Regeneration Prompt Template
-regeneration_template = """You are an educational Java error creator who intentionally introduces specific errors in code for teaching purposes.
-
-TASK:
-Modify this Java code to have EXACTLY {total_requested} errors - no more, no fewer.
-The code must contain ONLY the specific errors requested below.
-
-ORIGINAL CODE DOMAIN: {domain}
-
-MISSING ERRORS - INTENTIONALLY add these errors (do NOT fix or solve them):
-{missing_text}
-
-EXISTING ERRORS TO KEEP - Do not modify these errors:
-{found_text}
-
-VERY IMPORTANT INSTRUCTIONS:
-1. Focus on implementing EXACTLY the requested errors
-2. NEVER add comments like "// added to fix", "// fixed", or "// corrected" - these errors are meant to remain as errors!
-3. Do not change the domain or structure of the code
-4. Errors must be actual Java errors, not just comments about errors
-5. Use EXACTLY the same {domain} domain and maintain the original code structure
-6. For each error you add, include a comment in the format: // ERROR: [TYPE] - [NAME] - [Brief explanation]
-7. Do NOT try to improve or fix the code - it should contain intentional bugs for educational purposes
-8. The whole purpose is to create flawed code that students will learn to identify problems in
-
-VERIFICATION STEPS (DO THIS BEFORE SUBMITTING):
-1. Count the total number of errors in your code, confirm it's EXACTLY {total_requested}
-2. Verify each missing error from the list is now implemented
-3. Confirm all existing errors that should be kept are still present and unchanged
-4. Ensure any extra errors have been removed
-
-PROVIDE TWO VERSIONS OF THE CODE:
-1. First, provide the ANNOTATED VERSION with error comments, marked with:
-```java-annotated
-// Your code with intentional errors and error annotations
-```
-
-2. Then, provide the CLEAN VERSION without any error comments, marked with:
-```java-clean
-// The same code with the same intentional errors but no error comments
-```
-
-ORIGINAL CODE:
-```java
-{code}
-```
 """
 
 # Review Analysis Prompt Template

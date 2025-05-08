@@ -362,10 +362,10 @@ class JsonErrorRepository:
             # Collect errors from each selected category
             all_errors = []
             
-            # Java errors - randomly select from each category
             for category in selected_categories.get("java_errors", []):
                 if category in self.java_errors:
-                    category_errors = self.java_errors[category]
+                    # Use get_category_errors to get language-mapped errors
+                    category_errors = self.get_category_errors(category)
                     # For each selected category, randomly select 1-2 errors
                     num_to_select = min(len(category_errors), random.randint(1, 2))
                     if num_to_select > 0:
@@ -375,7 +375,7 @@ class JsonErrorRepository:
                             all_errors.append({
                                 "type": "java_error",
                                 "category": category,
-                                "name": error["error_name"],
+                                "name": error["error_name"],  # Now this will work with any language
                                 "description": error["description"],
                                 "implementation_guide": error.get("implementation_guide", "")
                             })
