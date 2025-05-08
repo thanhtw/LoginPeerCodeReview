@@ -10,6 +10,7 @@ import json
 import logging
 import random
 from typing import Dict, List, Any, Optional, Set, Union, Tuple
+from utils.language_utils import get_current_language
 
 # Configure logging
 logging.basicConfig(
@@ -33,7 +34,15 @@ class JsonErrorRepository:
         Args:
             java_errors_path: Path to the Java code review errors JSON file
         """
+        # Get current language
+        self.current_language = get_current_language()
         self.java_errors_path = java_errors_path
+
+        # Determine file path based on language
+        if java_errors_path is None:
+            self.java_errors_path = f"{self.current_language}_Java_code_review_errors.json"
+        else:
+            self.java_errors_path = java_errors_path
         
         # Initialize data
         self.java_errors = {}

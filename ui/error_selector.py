@@ -197,17 +197,17 @@ class ErrorSelectorUI:
         java_error_categories = all_categories.get("java_errors", [])
         
         # Translate category names
-        translated_categories = []
-        for category in java_error_categories:
-            translated_category = t(category.lower()) if category.lower() in ["logical", "syntax", "code_quality", "standard_violation", "java_specific"] else category
-            translated_categories.append(translated_category)
+        # translated_categories = []
+        # for category in java_error_categories:
+        #     translated_category = t(category.lower()) if category.lower() in ["logical", "syntax", "code_quality", "standard_violation", "java_specific"] else category
+        #     translated_categories.append(translated_category)
         
         # Container for selected errors
         if "selected_specific_errors" not in st.session_state:
             st.session_state.selected_specific_errors = []
             
         # Create tabs for each error category
-        error_tabs = st.tabs(translated_categories)
+        error_tabs = st.tabs(java_error_categories)
 
         # For each category tab
         for i, category in enumerate(java_error_categories):
