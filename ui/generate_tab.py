@@ -45,7 +45,7 @@ def generate_code_problem(workflow,
             # Update state with specific errors
             state.selected_specific_errors = selected_specific_errors
             # Clear categories for this mode
-            state.selected_error_categories = {"build": [], "checkstyle": []}
+            state.selected_error_categories = {"java_errors": []}
         elif error_selection_mode == "standard" or error_selection_mode == "advanced":
             build_selected = selected_error_categories.get("build", [])
             checkstyle_selected = selected_error_categories.get("checkstyle", [])
@@ -350,7 +350,7 @@ def render_generate_tab(workflow, error_selector_ui, code_display_ui, user_level
                     st.session_state.workflow_state.selected_error_categories = selected_categories
                     st.session_state.workflow_state.selected_specific_errors = []
                 else:
-                    st.session_state.workflow_state.selected_error_categories = {"build": [], "checkstyle": []}
+                    st.session_state.workflow_state.selected_error_categories = {"java_errors": []}
                     st.session_state.workflow_state.selected_specific_errors = specific_errors
                 
                 # Initialize generation state

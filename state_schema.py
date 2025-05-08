@@ -41,7 +41,7 @@ class WorkflowState(BaseModel):
     # IMPORTANT: Replace underscore field with properly named field
     # Use a single field with a clear name
     selected_error_categories: Dict[str, List[str]] = Field(
-        default_factory=lambda: {"build": [], "checkstyle": []}, 
+        default_factory=lambda: {"java_errors": []}, 
         description="Selected error categories"
     )
     

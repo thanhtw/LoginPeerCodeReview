@@ -22,7 +22,7 @@ class ErrorSelectorUI:
     UI Component for selecting Java error categories.
     
     This class handles displaying and selecting Java error categories
-    from both build errors and code quality errors.
+    from java errors.
     """
     
     def __init__(self):
@@ -30,21 +30,16 @@ class ErrorSelectorUI:
         # Track selected categories - initialize with empty collections if not in session state
         if "selected_error_categories" not in st.session_state:
             st.session_state.selected_error_categories = {
-                "build": [],
-                "checkstyle": []
+               "java_errors": []
             }
         elif not isinstance(st.session_state.selected_error_categories, dict):
             # Fix if it's not a proper dictionary
             st.session_state.selected_error_categories = {
-                "build": [],
-                "checkstyle": []
+                "java_errors": []
             }
-        elif "build" not in st.session_state.selected_error_categories or "checkstyle" not in st.session_state.selected_error_categories:
-            # Make sure both build and checkstyle keys exist
-            if "build" not in st.session_state.selected_error_categories:
-                st.session_state.selected_error_categories["build"] = []
-            if "checkstyle" not in st.session_state.selected_error_categories:
-                st.session_state.selected_error_categories["checkstyle"] = []
+        elif "java_errors" not in st.session_state.selected_error_categories:
+            # Make sure java_errors key exists
+            st.session_state.selected_error_categories["java_errors"] = []
         
         # Track error selection mode
         if "error_selection_mode" not in st.session_state:

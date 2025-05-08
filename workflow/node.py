@@ -95,10 +95,7 @@ class WorkflowNodes:
                 original_error_count = len(selected_errors)
             else:
                 # Using category-based selection mode
-                if not selected_error_categories or (
-                    not selected_error_categories.get("build", []) and 
-                    not selected_error_categories.get("checkstyle", [])
-                ):
+                if not selected_error_categories or not selected_error_categories.get("java_errors", []):
                     state.error = "No error categories selected. Please select at least one error category before generating code."
                     return state
                             
