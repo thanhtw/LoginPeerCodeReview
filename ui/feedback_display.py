@@ -9,6 +9,7 @@ import logging
 import pandas as pd
 import matplotlib.pyplot as plt
 from typing import List, Dict, Any, Optional, Tuple, Callable
+from utils.language_utils import t, get_current_language
 
 # Configure logging
 logging.basicConfig(
@@ -121,10 +122,9 @@ class FeedbackDisplayUI:
         # Start over button
         st.markdown("---")            
             
-    
     def _render_performance_summary(self, review_analysis: Dict[str, Any], review_history: List[Dict[str, Any]]):
         """Render performance summary metrics and charts using the consistent original error count"""
-        st.subheader("Review Performance Summary")
+        st.subheader(t("review_performance_summary"))
         
         # Create performance metrics using the original error count if available
         col1, col2, col3 = st.columns(3)
@@ -147,14 +147,14 @@ class FeedbackDisplayUI:
         
         with col1:
             st.metric(
-                "Overall Accuracy", 
+                t("overall_accuracy"), 
                 f"{accuracy:.1f}%",
                 delta=None
             )
             
         with col2:
             st.metric(
-                "Issues Identified", 
+                t("issues_identified"), 
                 f"{identified_count}/{original_error_count}",
                 delta=None
             )
@@ -162,7 +162,7 @@ class FeedbackDisplayUI:
         with col3:
             false_positives = len(review_analysis.get("false_positives", []))
             st.metric(
-                "False Positives", 
+                t("false_positives"), 
                 f"{false_positives}",
                 delta=None
             )
@@ -194,7 +194,7 @@ class FeedbackDisplayUI:
             })
             
             # Display the chart with two y-axes
-            st.subheader("Progress Across Iterations")
+            st.subheader(t("progress_across_iterations"))
             
             # Using matplotlib for more control
             fig, ax1 = plt.subplots(figsize=(10, 4))

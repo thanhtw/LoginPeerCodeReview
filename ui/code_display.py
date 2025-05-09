@@ -9,6 +9,7 @@ import streamlit as st
 import logging
 from typing import List, Dict, Any, Optional, Tuple, Callable
 from utils.code_utils import add_line_numbers
+from utils.language_utils import t, get_current_language
 
 # Configure logging
 logging.basicConfig(
@@ -26,7 +27,7 @@ class CodeDisplayUI:
     
     def render_code_display(self, code_snippet, known_problems: List[str] = None, instructor_mode: bool = False) -> None:
         if not code_snippet:
-            st.info("No code generated yet. Use the 'Generate Code Problem' tab to create a Java code snippet.")
+            st.info(t("no_code_generated_use_generate"))
             return
 
         if isinstance(code_snippet, str):
@@ -35,7 +36,7 @@ class CodeDisplayUI:
             if hasattr(code_snippet, 'clean_code') and code_snippet.clean_code:
                 display_code = code_snippet.clean_code
             else:
-                st.warning("Code snippet exists but contains no code. Please try regenerating the code.")
+                st.warning(t("code_exists_but_empty"))
                 return
         numbered_code = self._add_line_numbers(display_code)
         st.code(numbered_code, language="java")
@@ -71,13 +72,13 @@ class CodeDisplayUI:
         if iteration_count > 1:
             st.markdown(
                 f'<div class="review-header">'
-                f'<span class="review-title">Submit Your Code Review</span>'
-                f'<span class="iteration-badge">Attempt {iteration_count} of {max_iterations}</span>'
+                f'<span class="review-title">{t("submit_review")}</span>'
+                f'<span class="iteration-badge">{t("attempt")} {iteration_count} {t("of")} {max_iterations}</span>'
                 f'</div>', 
                 unsafe_allow_html=True
             )
         else:
-            st.markdown('<div class="review-header"><span class="review-title">Submit Your Code Review</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="review-header"><span class="review-title">{t("submit_review")}</span></div>', unsafe_allow_html=True)
         
         # Create a layout for guidance and history
         if targeted_guidance or (review_analysis and iteration_count > 1):
@@ -88,7 +89,7 @@ class CodeDisplayUI:
                 if targeted_guidance and iteration_count > 1:
                     st.markdown(
                         f'<div class="guidance-box">'
-                        f'<div class="guidance-title"><span class="guidance-icon">🎯</span> Review Guidance</div>'
+                        f'<div class="guidance-title"><span class="guidance-icon">🎯</span> {t("review_guidance")}</div>'
                         f'{targeted_guidance}'
                         f'</div>',
                         unsafe_allow_html=True
@@ -98,11 +99,11 @@ class CodeDisplayUI:
                     if review_analysis:
                         st.markdown(
                             f'<div class="analysis-box">'
-                            f'<div class="guidance-title"><span class="guidance-icon">📊</span> Previous Results</div>'
-                            f'You identified {review_analysis.get("identified_count", 0)} of '
-                            f'{review_analysis.get("total_problems", 0)} issues '
+                            f'<div class="guidance-title"><span class="guidance-icon">📊</span> {t("previous_results")}</div>'
+                            f'{t("you_identified")} {review_analysis.get("identified_count", 0)} {t("of")} '
+                            f'{review_analysis.get("total_problems", 0)} {t("issues")} '
                             f'({review_analysis.get("identified_percentage", 0):.1f}%). '
-                            f'Try to find more issues in this attempt.'
+                            f'{t("try_find_more_issues")}'
                             f'</div>',
                             unsafe_allow_html=True
                         )
@@ -110,7 +111,7 @@ class CodeDisplayUI:
             # Display previous review if available
             with history_col:
                 if student_review and iteration_count > 1:
-                    st.markdown('<div class="guidance-title"><span class="guidance-icon">📝</span> Previous Review</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="guidance-title"><span class="guidance-icon">📝</span> {t("previous_review")}</div>', unsafe_allow_html=True)
                     st.markdown(
                         f'<div class="review-history-box">'
                         f'<pre style="margin: 0; white-space: pre-wrap; font-size: 0.85rem; color: var(--text);">{student_review}</pre>'
@@ -119,43 +120,43 @@ class CodeDisplayUI:
                     )
         
         # Display review guidelines - UPDATED for natural language
-        with st.expander("📋 Review Guidelines", expanded=False):
-            st.markdown("""
-            ### How to Write an Effective Code Review:
+        with st.expander(f"📋 {t('review_guidelines')}", expanded=False):
+            st.markdown(f"""
+            ### {t('how_to_write')}
             
-            1. **Be Specific**: Point out exact lines or areas where problems occur
-            2. **Be Comprehensive**: Look for different types of issues
-            3. **Be Constructive**: Suggest improvements, not just criticisms
-            4. **Check for**:
-            - Syntax and compilation errors
-            - Logical errors and bugs
-            - Naming conventions and coding standards
-            - Code style and formatting issues
-            - Documentation completeness
-            - Potential security vulnerabilities
-            - Efficiency and performance concerns
-            5. **Format Your Review**: Use a consistent format like:
+            1. **{t('be_specific')}**
+            2. **{t('be_comprehensive')}**
+            3. **{t('be_constructive')}**
+            4. **{t('check_for')}**
+            - {t('syntax_compilation_errors')}
+            - {t('logical_errors_bugs')}
+            - {t('naming_conventions')}
+            - {t('code_style_formatting')}
+            - {t('documentation_completeness')}
+            - {t('security_vulnerabilities')}
+            - {t('efficiency_performance')}
+            5. **{t('format_your_review')}**
             ```
-            Line X: Description of the issue and why it's problematic
-            ```
-            
-            ### Examples of Good Review Comments:
-            
-            ```
-            Line 15: The variable name 'cnt' is too short and unclear. It should be renamed to something more descriptive like 'counter'.
-            
-            Line 27: This loop will miss the last element because it uses < instead of <=
-            
-            Line 42: The string comparison uses == instead of .equals() which will compare references not content
-            
-            Line 72: Missing null check before calling method on user object
+            {t('review_format_example')}
             ```
             
-            You don't need to use formal error categories - writing in natural language is perfect!
+            ### {t('review_example')}
+            
+            ```
+            {t('example_review_comment1')}
+            
+            {t('example_review_comment2')}
+            
+            {t('example_review_comment3')}
+            
+            {t('example_review_comment4')}
+            ```
+            
+            {t('formal_categories_note')}
             """)
         
         # Get or update the student review
-        st.write("### Your Review:")
+        st.write(f"### {t('your_review')}:")
         
         # Create a unique key for the text area
         text_area_key = f"student_review_input_{iteration_count}"
@@ -173,20 +174,20 @@ class CodeDisplayUI:
         
         # Get or update the student review with custom styling
         student_review_input = st.text_area(
-            "Enter your review comments here",
+            t("enter_review"),
             value=initial_value, 
             height=300,
             key=text_area_key,
-            placeholder="Example:\nLine 15: The variable 'cnt' uses poor naming. Consider using 'counter' instead.\nLine 27: The loop condition should use '<=' instead of '<' to include the boundary value.",
+            placeholder=t("review_placeholder"),
             label_visibility="collapsed",
-            help="Provide detailed feedback on the code. Be specific about line numbers and issues you've identified."
+            help=t("review_help_text")
         )
         
         # Create button container for better layout
         st.markdown('<div class="button-container">', unsafe_allow_html=True)
         
         # Submit button with professional styling
-        submit_text = "Submit Review" if iteration_count == 1 else f"Submit Review (Attempt {iteration_count}/{max_iterations})"
+        submit_text = t("submit_review_button") if iteration_count == 1 else f"{t('submit_review_button')} ({t('attempt')} {iteration_count}/{max_iterations})"
         
         col1, col2 = st.columns([4, 1])
         
@@ -197,7 +198,7 @@ class CodeDisplayUI:
         
         with col2:
             st.markdown('<div class="clear-button">', unsafe_allow_html=True)
-            clear_button = st.button("Clear", use_container_width=True)
+            clear_button = st.button(t("clear"), use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('</div>', unsafe_allow_html=True)  # Close button container
@@ -210,10 +211,10 @@ class CodeDisplayUI:
         # Handle submit button with improved validation
         if submit_button:
             if not student_review_input.strip():
-                st.error("Please enter your review before submitting.")
+                st.error(t("please_enter_review"))
             elif on_submit_callback:
                 # Show a spinner while processing
-                with st.spinner("Processing your review..."):
+                with st.spinner(t("processing_review")):
                     # Call the submission callback
                     on_submit_callback(student_review_input)
                     
@@ -223,11 +224,3 @@ class CodeDisplayUI:
         
         # Close review container
         st.markdown('</div>', unsafe_allow_html=True)
-
-
-
-
-
-
-
-                   

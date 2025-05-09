@@ -155,7 +155,14 @@ translations = {
     "view_feedback": "View Feedback",
     "all_errors_found": "🎉 Congratulations! You've found all the errors! Proceed to the feedback tab to see your results.",
     "iterations_completed": "You have completed all {max_iterations} review iterations. View feedback in the next tab.",
-    
+    # Add these keys to translations dictionary
+    "please_generate_problem_first": "Please generate a code problem first",
+    "review_cannot_be_empty": "Review cannot be empty",
+    "please_enter_review": "Please enter your review before submitting",
+    "analyzing_review": "Analyzing your review...",
+    "analysis_complete": "Analysis complete! Displaying results...",
+    "review_process_complete": "Review process complete, switching to feedback tab",
+
     # Feedback
     "educational_feedback": "Educational Feedback:",
     "your_review": "Your Review:",
@@ -173,6 +180,56 @@ translations = {
     "complete_review_first":"Please complete all review attempts before accessing feedback.",
     "current_process_review1":"Current progress",
     "current_process_review2":"attempts completed",
+    # Add these keys to translations dictionary
+    "no_code_generated_use_generate": "No code generated yet. Use the 'Generate Problem' tab to create a Java code snippet.",
+    "code_exists_but_empty": "Code snippet exists but contains no code. Please try regenerating the code.",
+    "you_identified": "You identified",
+    "try_find_more_issues": "Try to find more issues in this attempt.",
+    "your_review": "Your Review",
+    "syntax_compilation_errors": "Syntax and compilation errors",
+    "logical_errors_bugs": "Logical errors and bugs",
+    "naming_conventions": "Naming conventions and coding standards",
+    "code_style_formatting": "Code style and formatting issues",
+    "documentation_completeness": "Documentation completeness",
+    "security_vulnerabilities": "Potential security vulnerabilities",
+    "efficiency_performance": "Efficiency and performance concerns",
+    "format_your_review": "Format Your Review",
+    "review_format_example": "Line X: Description of the issue and why it's problematic",
+    "example_review_comment1": "Line 15: The variable name 'cnt' is too short and unclear. It should be renamed to something more descriptive like 'counter'.",
+    "example_review_comment2": "Line 27: This loop will miss the last element because it uses < instead of <=",
+    "example_review_comment3": "Line 42: The string comparison uses == instead of .equals() which will compare references not content",
+    "example_review_comment4": "Line 72: Missing null check before calling method on user object",
+    "formal_categories_note": "You don't need to use formal error categories - writing in natural language is perfect!",
+    "review_placeholder": "Example:\nLine 15: The variable 'cnt' uses poor naming. Consider using 'counter' instead.\nLine 27: The loop condition should use '<=' instead of '<' to include the boundary value.",
+    "review_help_text": "Provide detailed feedback on the code. Be specific about line numbers and issues you've identified.",
+    # Add these keys to translations dictionary
+    "review_completed_max_iterations": "Review completed: max iterations reached",
+    "review_completed_sufficient": "Review completed: sufficient review",
+    "review_completed_all_identified": "Review completed: all",
+    "issues": "issues",
+    "generated_comparison_report": "Generated comparison report for feedback tab",
+    "generating_comparison_report": "generating comparison report",
+    "review_feedback": "Review Feedback",
+    "error_generating_report": "There was an error generating a detailed comparison report.",
+    "check_review_history": "Please check your review history for details",
+    "preparing_update_stats": "Preparing to update stats",
+    "identified_count": "identified count",
+    "successfully_updated_statistics": "Successfully updated user statistics",
+    "statistics_updated": "Statistics updated",
+    "to_your_score": "to your score",
+    "congratulations": "Congratulations",
+    "level_upgraded": "Your level has been upgraded from",
+    "to": "to",
+    "unknown_error": "Unknown error",
+    "no_result_returned": "No result returned",
+    "failed_update_statistics": "Failed to update statistics",
+    "updating_user_statistics": "updating user statistics",
+    "updating_statistics": "updating statistics",
+    "review_performance_summary": "Review Performance Summary",
+    "overall_accuracy": "Overall Accuracy",
+    "issues_identified": "Issues Identified",
+    "progress_across_iterations": "Progress Across Iterations",
+    "start_process":"Started code generation process",
 
     
     # Tabs
@@ -235,5 +292,27 @@ translations = {
     "clear_logs": "Clear Logs",
     "clear_logs_warning": "This will remove in-memory logs. Log files on disk will be preserved.",
     "confirm_clear_logs": "Confirm Clear Logs",
-    "logs_cleared": "Logs cleared."
+    "logs_cleared": "Logs cleared.",
+
+    # Provider-related strings
+    "using_ollama": "Using local Ollama models",
+    "connected_ollama": "Connected to Ollama",
+    "using_groq": "Using Groq API (cloud)",
+    "connected_groq": "Connected to Groq API",
+    "connected": "Connected",
+    "not_connected_to_groq": "Not connected to Groq API",
+    
+    # Troubleshooting strings
+    "troubleshooting": "Troubleshooting",
+    "make_sure_ollama_running": "Make sure Ollama is installed and running",
+    "check_ollama_accessible": "Check that Ollama is accessible at http://localhost:11434",
+    "custom_url_env": "If using a custom URL, set OLLAMA_BASE_URL in your .env file",
+    
+    # Error messages
+    "error": "Error",
+    "no_specific_errors_selected": "No specific errors selected. Please select at least one error before generating code.",
+    "no_code_snippet_evaluation": "No code snippet available for evaluation",
+    "no_code_snippet_available": "No code snippet available",
+    "no_review_submitted": "No review submitted to analyze",
+    "student_evaluator_not_initialized": "Student response evaluator not initialized"
 }

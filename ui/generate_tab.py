@@ -383,7 +383,7 @@ def render_generate_tab(workflow, error_selector_ui, code_display_ui, user_level
         st.markdown('<div class="generate-button-container">', unsafe_allow_html=True)
         if st.button(t("generate_code_button"), type="primary", use_container_width=True):
             # Reset workflow steps for a fresh generation
-            st.session_state.workflow_steps = ["Started code generation process"]
+            st.session_state.workflow_steps = [f"{t('start_process')}"]
             
             # Store parameters in state for generation
             if hasattr(st.session_state, 'workflow_state'):

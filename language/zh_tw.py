@@ -153,6 +153,13 @@ translations = {
     "view_feedback": "查看反饋",
     "all_errors_found": "🎉 恭喜！您已找到所有錯誤！前往反饋標籤查看您的結果。",
     "iterations_completed": "您已完成所有 {max_iterations} 次審查迭代。在下一個標籤中查看反饋。",
+    # Add these keys to translations dictionary
+    "please_generate_problem_first": "請先生成代碼問題",
+    "review_cannot_be_empty": "審查不能為空",
+    "please_enter_review": "請在提交前輸入您的審查",
+    "analyzing_review": "正在分析您的審查...",
+    "analysis_complete": "分析完成！顯示結果...",
+    "review_process_complete": "審查過程完成，正在切換到反饋選項卡",
     
     # Feedback
     "educational_feedback": "教育性反饋：",
@@ -171,6 +178,56 @@ translations = {
     "complete_review_first":"請在查看回饋意見前完成所有的審查嘗試",
     "current_process_review1":"目前進度：已完成",
     "current_process_review2":"次嘗試",
+    # Add these keys to translations dictionary
+    "review_completed_max_iterations": "審查已完成：已達到最大迭代次數",
+    "review_completed_sufficient": "審查已完成：審查足夠",
+    "review_completed_all_identified": "審查已完成：所有",
+    "issues": "問題",
+    "generated_comparison_report": "已為反饋標籤生成比較報告",
+    "generating_comparison_report": "生成比較報告",
+    "review_feedback": "審查反饋",
+    "error_generating_report": "生成詳細比較報告時出錯。",
+    "check_review_history": "請檢查您的審查歷史以獲取詳細信息",
+    "preparing_update_stats": "準備更新統計數據",
+    "identified_count": "已識別數量",
+    "successfully_updated_statistics": "成功更新用戶統計數據",
+    "statistics_updated": "統計數據已更新",
+    "to_your_score": "到您的分數",
+    "congratulations": "恭喜",
+    "level_upgraded": "您的等級已從",
+    "to": "升級到",
+    "unknown_error": "未知錯誤",
+    "no_result_returned": "未返回結果",
+    "failed_update_statistics": "更新統計數據失敗",
+    "updating_user_statistics": "更新用戶統計數據",
+    "updating_statistics": "更新統計數據",
+    "review_performance_summary": "審查績效摘要",
+    "overall_accuracy": "整體準確度",
+    "issues_identified": "已識別問題",
+    "progress_across_iterations": "迭代進度",
+    "start_process":"開始程式碼生成程序",
+    # Add these keys to translations dictionary
+    "no_code_generated_use_generate": "尚未生成代碼。請使用「生成問題」標籤來創建Java代碼片段。",
+    "code_exists_but_empty": "代碼片段存在但不包含代碼。請嘗試重新生成代碼。",
+    "you_identified": "您已識別",
+    "try_find_more_issues": "在此次嘗試中尋找更多問題。",
+    "your_review": "您的審查",
+    "syntax_compilation_errors": "語法和編譯錯誤",
+    "logical_errors_bugs": "邏輯錯誤和缺陷",
+    "naming_conventions": "命名約定和編碼標準",
+    "code_style_formatting": "代碼風格和格式問題",
+    "documentation_completeness": "文檔完整性",
+    "security_vulnerabilities": "潛在安全漏洞",
+    "efficiency_performance": "效率和性能問題",
+    "format_your_review": "格式化您的審查",
+    "review_format_example": "行 X：問題描述及其為何有問題",
+    "example_review_comment1": "行 15：變數名稱 'cnt' 太短且不清晰。應該重命名為更具描述性的名稱，如 'counter'。",
+    "example_review_comment2": "行 27：此循環將錯過最後一個元素，因為它使用 < 而不是 <=",
+    "example_review_comment3": "行 42：字符串比較使用 == 而不是 .equals()，這將比較引用而不是內容",
+    "example_review_comment4": "行 72：在調用方法之前缺少空值檢查",
+    "formal_categories_note": "您不需要使用正式的錯誤類別 - 用自然語言書寫即可！",
+    "review_placeholder": "示例：\n行 15：變數 'cnt' 使用不良命名。考慮使用 'counter' 代替。\n行 27：循環條件應使用 '<=' 而不是 '<' 以包含邊界值。",
+    "review_help_text": "提供有關代碼的詳細反饋。請具體說明行號和您識別的問題。",
     
     # Tabs
     "tab_generate": "1. 生成問題",
@@ -232,6 +289,28 @@ translations = {
     "clear_logs": "清除日誌",
     "clear_logs_warning": "這將刪除記憶體中的日誌。磁碟上的日誌文件將被保留。",
     "confirm_clear_logs": "確認清除日誌",
-    "logs_cleared": "日誌已清除。"
+    "logs_cleared": "日誌已清除。",
+
+    # Provider-related strings
+    "using_ollama": "使用本地 Ollama 模型",
+    "connected_ollama": "已連接到 Ollama",
+    "using_groq": "使用 Groq API（雲端）",
+    "connected_groq": "已連接到 Groq API",
+    "connected": "已連接",
+    "not_connected_to_groq": "未連接到 Groq API",
+    
+    # Troubleshooting strings
+    "troubleshooting": "故障排除",
+    "make_sure_ollama_running": "確保 Ollama 已安裝並正在運行",
+    "check_ollama_accessible": "檢查 Ollama 可以在 http://localhost:11434 訪問",
+    "custom_url_env": "如果使用自定義 URL，請在 .env 文件中設置 OLLAMA_BASE_URL",
+    
+    # Error messages
+    "error": "錯誤",
+    "no_specific_errors_selected": "未選擇特定錯誤。請在生成代碼前選擇至少一個錯誤。",
+    "no_code_snippet_evaluation": "沒有可評估的代碼片段",
+    "no_code_snippet_available": "沒有可用的代碼片段",
+    "no_review_submitted": "沒有提交審查",
+    "student_evaluator_not_initialized": "學生回應評估器未初始化"
 
 }

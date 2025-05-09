@@ -85,9 +85,9 @@ class WorkflowNodes:
             if using_specific_errors:
                 # Using specific errors mode - IMPORTANT: Use the exact selected errors without modification
                 if not selected_specific_errors:
-                    state.error = "No specific errors selected. Please select at least one error before generating code."
+                    state.error = t("no_specific_errors_selected")
                     return state
-                    
+                        
                 logger.info(f"Using specific errors mode with {len(selected_specific_errors)} errors")
                 # Use the selected errors directly without applying count filtering
                 selected_errors = selected_specific_errors
@@ -96,7 +96,7 @@ class WorkflowNodes:
             else:
                 # Using category-based selection mode
                 if not selected_error_categories or not selected_error_categories.get("java_errors", []):
-                    state.error = "No error categories selected. Please select at least one error category before generating code."
+                    state.error = t("no_categories")
                     return state
                             
                 logger.info(f"Using category-based mode with categories: {selected_error_categories}")
@@ -158,8 +158,8 @@ class WorkflowNodes:
             return state
                     
         except Exception as e:           
-            logger.error(f"Error generating code: {str(e)}", exc_info=True)
-            state.error = f"Error generating code: {str(e)}"
+            logger.error(f"{t('error')} generating code: {str(e)}", exc_info=True)
+            state.error = f"{t('error')} generating code: {str(e)}"
             return state
 
     def regenerate_code_node(self, state: WorkflowState) -> WorkflowState:
@@ -244,7 +244,7 @@ class WorkflowNodes:
             
             # Validate code snippet
             if not state.code_snippet:
-                state.error = "No code snippet available for evaluation"
+                state.error = t("no_code_snippet_evaluation")
                 return state
                     
             # Get the code with annotations
@@ -402,7 +402,7 @@ class WorkflowNodes:
         try:
             # Validate review history
             if not state.review_history:
-                state.error = "No review submitted to analyze"
+                state.error = t("no_review_submitted")
                 return state
                     
             latest_review = state.review_history[-1]
@@ -410,7 +410,7 @@ class WorkflowNodes:
             
             # Validate code snippet
             if not state.code_snippet:
-                state.error = "No code snippet available"
+                state.error = t("no_code_snippet_available")
                 return state
                     
             code_snippet = state.code_snippet.code
@@ -426,7 +426,7 @@ class WorkflowNodes:
             # Get the student response evaluator from the evaluator attribute
             evaluator = getattr(self, "evaluator", None)
             if not evaluator:
-                state.error = "Student response evaluator not initialized"
+                state.error = t("student_evaluator_not_initialized")
                 return state
             
             # Use the standard evaluation method

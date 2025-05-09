@@ -39,10 +39,10 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
     if hasattr(state, 'current_iteration') and hasattr(state, 'max_iterations'):
         if state.current_iteration > state.max_iterations:
             review_completed = True
-            logger.info("Review completed: max iterations reached")
+            logger.info(t("review_completed_max_iterations"))
         elif hasattr(state, 'review_sufficient') and state.review_sufficient:
             review_completed = True
-            logger.info("Review completed: sufficient review")
+            logger.info(t("review_completed_sufficient"))
         
         # Check for all errors identified - HIGHEST PRIORITY CHECK
         if state.review_history and len(state.review_history) > 0:
@@ -57,12 +57,12 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
                 if not hasattr(state, 'review_sufficient') or not state.review_sufficient:
                     # Ensure state is consistent
                     state.review_sufficient = True
-                logger.info(f"Review completed: all {total_problems} issues identified")
+                logger.info(f"{t('review_completed_all_identified')} {total_problems} {t('issues')}")
 
     # Block access if review not completed
     if not review_completed:
         st.warning(f"{t('complete_review_first')}")
-        st.info(f"{t('current_process_review1')} {state.current_iteration-1}/{state.max_iterations} {t('current_process_review1')}")       
+        st.info(f"{t('current_process_review1')} {state.current_iteration-1}/{state.max_iterations} {t('current_process_review2')}")       
         return
     
     # Get the latest review analysis and history
@@ -93,15 +93,15 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
                     found_errors,
                     latest_review.analysis
                 )
-                logger.info("Generated comparison report for feedback tab")
+                logger.info(t("generated_comparison_report"))
         except Exception as e:
-            logger.error(f"Error generating comparison report: {str(e)}")
+            logger.error(f"{t('error')} {t('generating_comparison_report')}: {str(e)}")
             logger.error(traceback.format_exc())  # Log full stacktrace
             if not state.comparison_report:
                 state.comparison_report = (
-                    "# Review Feedback\n\n"
-                    "There was an error generating a detailed comparison report. "
-                    "Please check your review history for details."
+                    f"# {t('review_feedback')}\n\n"
+                    f"{t('error_generating_report')} "
+                    f"{t('check_review_history')}."
                 )
     
     # Get the latest review analysis
@@ -119,8 +119,8 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
             accuracy = latest_analysis.get("identified_percentage", 0)
             
             # Log details before update
-            logger.info(f"Preparing to update stats: accuracy={accuracy:.1f}%, " + 
-                    f"score={identified_count} (identified count), key={stats_key}")
+            logger.info(f"{t('preparing_update_stats')}: {t('accuracy')}={accuracy:.1f}%, " + 
+                    f"{t('score')}={identified_count} ({t('identified_count')}), key={stats_key}")
             
             # Update user stats with identified_count as score
             result = auth_ui.update_review_stats(accuracy, identified_count)
@@ -130,17 +130,17 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
             
             # Log the update result
             if result and result.get("success", False):
-                logger.info(f"Successfully updated user statistics: {result}")
+                logger.info(f"{t('successfully_updated_statistics')}: {result}")
                 
                 # Add explicit UI message about the update
-                st.success(f"Statistics updated! Added {identified_count} to your score.")
+                st.success(f"{t('statistics_updated')}! {t('added')} {identified_count} {t('to_your_score')}.")
                 
                 # Show level promotion message if level changed
                 if result.get("level_changed", False):
                     old_level = result.get("old_level", "").capitalize()
                     new_level = result.get("new_level", "").capitalize()
                     st.balloons()  # Add visual celebration effect
-                    st.success(f"🎉 Congratulations! Your level has been upgraded from {old_level} to {new_level}!")
+                    st.success(f"🎉 {t('congratulations')}! {t('level_upgraded')} {old_level} {t('to')} {new_level}!")
                 
                 # Give the database a moment to complete the update
                 time.sleep(0.5)
@@ -148,13 +148,13 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
                 # Force UI refresh after successful update
                 st.rerun()
             else:
-                err_msg = result.get('error', 'Unknown error') if result else "No result returned"
-                logger.error(f"Failed to update user statistics: {err_msg}")
-                st.error(f"Failed to update statistics: {err_msg}")
+                err_msg = result.get('error', t('unknown_error')) if result else t('no_result_returned')
+                logger.error(f"{t('failed_update_statistics')}: {err_msg}")
+                st.error(f"{t('failed_update_statistics')}: {err_msg}")
         except Exception as e:
-            logger.error(f"Error updating user statistics: {str(e)}")
+            logger.error(f"{t('error')} {t('updating_user_statistics')}: {str(e)}")
             logger.error(traceback.format_exc())
-            st.error(f"Error updating statistics: {str(e)}")
+            st.error(f"{t('error')} {t('updating_statistics')}: {str(e)}")
     
     # Display feedback results
     feedback_display_ui.render_results(
@@ -168,10 +168,10 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
     st.markdown("---")
     new_session_col1, new_session_col2 = st.columns([3, 1])
     with new_session_col1:
-        st.markdown("### Ready for another review?")
-        st.markdown("Start a new code review session to practice with different errors.")
+        st.markdown(f"### {t('new_session')}")
+        st.markdown(t("new_session_desc"))
     with new_session_col2:
-        if st.button("Start New Session", use_container_width=True):
+        if st.button(t("start_new_session"), use_container_width=True):
             # Clear all update keys in session state
             keys_to_remove = [k for k in st.session_state.keys() if k.startswith("stats_updated_")]
             for key in keys_to_remove:

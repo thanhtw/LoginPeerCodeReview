@@ -33,26 +33,26 @@ def process_student_review(workflow, student_review: str):
         bool: True if successful, False otherwise
     """
     # Show progress during analysis
-    with st.status("Processing your review...", expanded=True) as status:
+    with st.status(t("processing_review"), expanded=True) as status:
         try:
             # Get current state
             if not hasattr(st.session_state, 'workflow_state'):
-                status.update(label="Error: Workflow state not initialized", state="error")
-                st.session_state.error = "Please generate a code problem first"
+                status.update(label=f"{t('error')}: {t('workflow_not_initialized')}", state="error")
+                st.session_state.error = t("please_generate_problem_first")
                 return False
                 
             state = st.session_state.workflow_state
             
             # Check if code snippet exists
             if not state.code_snippet:
-                status.update(label="Error: No code snippet available", state="error")
-                st.session_state.error = "Please generate a code problem first"
+                status.update(label=f"{t('error')}: {t('no_code_snippet_available')}", state="error")
+                st.session_state.error = t("please_generate_problem_first")
                 return False
             
             # Check if student review is empty
             if not student_review.strip():
-                status.update(label="Error: Review cannot be empty", state="error")
-                st.session_state.error = "Please enter your review before submitting"
+                status.update(label=f"{t('error')}: {t('review_cannot_be_empty')}", state="error")
+                st.session_state.error = t("please_enter_review")
                 return False
             
             # Store the current review in session state for display consistency
@@ -60,7 +60,7 @@ def process_student_review(workflow, student_review: str):
             st.session_state[f"submitted_review_{current_iteration}"] = student_review
             
             # Update status
-            status.update(label="Analyzing your review...", state="running")
+            status.update(label=t("analyzing_review"), state="running")
             
             # Log submission attempt
             logger.info(f"Submitting review (iteration {current_iteration}): {student_review[:100]}...")
@@ -85,9 +85,9 @@ def process_student_review(workflow, student_review: str):
             
             # Check for errors
             if updated_state.error:
-                status.update(label=f"Error: {updated_state.error}", state="error")
+                status.update(label=f"{t('error')}: {updated_state.error}", state="error")
                 st.session_state.error = updated_state.error
-                logger.error(f"Error during review analysis: {updated_state.error}")
+                logger.error(f"{t('error')} during review analysis: {updated_state.error}")
                 return False
             
             # Update session state
@@ -97,7 +97,7 @@ def process_student_review(workflow, student_review: str):
             logger.info(f"Review analysis complete for iteration {current_iteration}")
             
             # Update status
-            status.update(label="Analysis complete! Displaying results...", state="complete")
+            status.update(label=t("analysis_complete"), state="complete")
             
             # Force UI refresh 
             st.rerun()
@@ -105,7 +105,7 @@ def process_student_review(workflow, student_review: str):
             return True
             
         except Exception as e:
-            error_msg = f"Error processing student review: {str(e)}"
+            error_msg = f"{t('error')} processing student review: {str(e)}"
             logger.error(error_msg)
             status.update(label=error_msg, state="error")
             st.session_state.error = error_msg
@@ -203,7 +203,7 @@ def render_review_tab(workflow, code_display_ui):
             
             # Check if this was the last iteration or review is sufficient
             if updated_state.current_iteration >= updated_state.max_iterations or updated_state.review_sufficient:
-                logger.info("Review process complete, switching to feedback tab")
+                logger.info(t("review_process_complete"))
                 # Switch to feedback tab (index 2)
                 st.session_state.active_tab = 2
                 # Force rerun to update UI
@@ -223,7 +223,7 @@ def render_review_tab(workflow, code_display_ui):
         if st.session_state.workflow_state.review_sufficient or all_errors_found:
             st.success(f"{t('all_errors_found')}")
         else:
-            st.warning(f"{t('iterations_completed')}")
+            st.warning(t("iterations_completed").format(max_iterations=max_iterations))
         
         if st.button(f"{t('view_feedback')}"):
             st.session_state.active_tab = 2  # 2 is the index of the feedback tab

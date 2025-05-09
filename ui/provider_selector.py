@@ -155,14 +155,14 @@ class ProviderSelectorUI:
             # Display current provider
             provider = self.llm_manager.provider
             if provider == "ollama":
-                st.info("🖥️ Using local Ollama models")
+                st.info("🖥️ " + t("using_ollama"))
                 
                 # Check connection status
                 connection_status, _ = self.llm_manager.check_ollama_connection()
                 if connection_status:
-                    st.success("Connected to Ollama")
+                    st.success(t("connected_ollama"))
                 else:
-                    st.error("Not connected to Ollama")
+                    st.error(f"Not {t('connected')} to Ollama")
             
             elif provider == "groq":
                 st.info(f"☁️ {t('using_groq')}")
@@ -175,7 +175,7 @@ class ProviderSelectorUI:
                     masked_key = f"{api_key[:4]}...{api_key[-4:]}" if len(api_key) > 8 else "Not set"
                     st.success(f"{t('connected_groq')} (Key: {masked_key})")
                 else:
-                    st.error("Not connected to Groq API")
+                    st.error(t("not_connected_to_groq"))
             
             # Button to change provider
             if st.button(f"{t('change_provider')}"):
