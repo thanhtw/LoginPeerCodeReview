@@ -6,6 +6,7 @@ from langchain_core.language_models import BaseLanguageModel
 
 from utils.code_utils import create_review_analysis_prompt, create_feedback_prompt, process_llm_response
 from utils.llm_logger import LLMInteractionLogger
+from utils.language_utils import get_field_value
 
 # Configure logging
 logging.basicConfig(
@@ -126,11 +127,11 @@ class StudentResponseEvaluator:
         if not analysis_data:
             return self._fallback_evaluation(known_problems)
         
-        # Extract core metrics with defaults
-        identified_count = analysis_data.get("identified_count", 0)
-        missed_count = analysis_data.get("missed_count", 0)
-        false_positive_count = analysis_data.get("false_positive_count", 0)
-        total_problems = analysis_data.get("total_problems", len(known_problems))
+        # Extract core metrics with defaults - use get_field_value for language awareness
+        identified_count = get_field_value(analysis_data, "identified_count", 0)
+        missed_count = get_field_value(analysis_data, "missed_count", 0)
+        false_positive_count = get_field_value(analysis_data, "false_positive_count", 0)
+        total_problems = get_field_value(analysis_data, "total_problems", len(known_problems))
         
         # Calculate percentages
         if total_problems > 0:
@@ -139,7 +140,7 @@ class StudentResponseEvaluator:
             identified_percentage = 100.0
         
         # Extract review quality metrics
-        review_quality_score = analysis_data.get("review_quality_score", 5.0)
+        review_quality_score = get_field_value(analysis_data, "review_quality_score", 5.0)
         if not isinstance(review_quality_score, (int, float)):
             try:
                 review_quality_score = float(review_quality_score)
@@ -149,14 +150,14 @@ class StudentResponseEvaluator:
         # Determine if review is sufficient
         # Use LLM's determination if available, otherwise calculate based on percentage
         if "review_sufficient" in analysis_data:
-            review_sufficient = analysis_data["review_sufficient"]
+            review_sufficient = get_field_value(analysis_data, "review_sufficient", False)
         else:
             review_sufficient = identified_percentage >= self.min_identified_percentage
         
         # Extract problem lists with language-aware handling
-        identified_problems = self._process_problem_list(analysis_data.get("identified_problems", []))
-        missed_problems = self._process_problem_list(analysis_data.get("missed_problems", []))
-        false_positives = self._process_problem_list(analysis_data.get("false_positives", []), key="student_comment")
+        identified_problems = self._process_problem_list(get_field_value(analysis_data, "identified_problems", []))
+        missed_problems = self._process_problem_list(get_field_value(analysis_data, "missed_problems", []))
+        false_positives = self._process_problem_list(get_field_value(analysis_data, "false_positives", []), key="student_comment")
         
         # Simplified versions for easier processing
         simple_identified = self._extract_simple_problems(identified_problems)
@@ -164,7 +165,7 @@ class StudentResponseEvaluator:
         simple_false_positives = self._extract_simple_problems(false_positives, key="student_comment")
         
         # Get overall feedback
-        feedback = analysis_data.get("feedback", "")
+        feedback = get_field_value(analysis_data, "feedback", "")
         if not feedback:
             # Generate basic feedback based on performance
             if identified_percentage >= 80:
@@ -335,7 +336,8 @@ class StudentResponseEvaluator:
                 "raw_text": text[:500] + ("..." if len(text) > 500 else "")
             }
 
-    def generate_targeted_guidance(self, code_snippet: str, known_problems: List[str], student_review: str, review_analysis: Dict[str, Any], iteration_count: int, max_iterations: int) -> str:
+    def generate_targeted_guidance(self, code_snippet: str, known_problems: List[str], student_review: str, 
+                review_analysis: Dict[str, Any], iteration_count: int, max_iterations: int) -> str:
         """
         Generate targeted guidance for the student to improve their review.
         Ensures guidance is concise and focused.
@@ -374,9 +376,9 @@ class StudentResponseEvaluator:
             metadata = {
                 "iteration": iteration_count,
                 "max_iterations": max_iterations,
-                "identified_count": review_analysis.get("identified_count", 0),
-                "total_problems": review_analysis.get("total_problems", len(known_problems)),
-                "identified_percentage": review_analysis.get("identified_percentage", 0)
+                "identified_count": get_field_value(review_analysis, "identified_count", 0),
+                "total_problems": get_field_value(review_analysis, "total_problems", len(known_problems)),
+                "identified_percentage": get_field_value(review_analysis, "identified_percentage", 0)
             }
 
             # Generate the guidance using the LLM
@@ -413,13 +415,13 @@ class StudentResponseEvaluator:
         Returns:
             Concise guidance text
         """
-        # Extract key metrics
-        identified_count = review_analysis.get("identified_count", 0)
-        total_problems = review_analysis.get("total_problems", 0)
-        accuracy = review_analysis.get("identified_percentage", 0)
+        # Extract key metrics using get_field_value for language awareness
+        identified_count = get_field_value(review_analysis, "identified_count", 0)
+        total_problems = get_field_value(review_analysis, "total_problems", 0)
+        accuracy = get_field_value(review_analysis, "identified_percentage", 0)
         
         # Get missed problems
-        missed_problems = review_analysis.get("missed_problems", [])
+        missed_problems = get_field_value(review_analysis, "missed_problems", [])
         
         # Create concise guidance based on accuracy
         if accuracy >= 75:

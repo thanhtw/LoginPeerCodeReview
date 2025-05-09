@@ -9,7 +9,7 @@ import logging
 import pandas as pd
 import matplotlib.pyplot as plt
 from typing import List, Dict, Any, Optional, Tuple, Callable
-from utils.language_utils import t, get_current_language, get_field_value  # Add get_field_value import
+from utils.language_utils import t, get_current_language, get_field_value, get_state_attribute  # Add get_state_attribute
 
 # Configure logging
 logging.basicConfig(
@@ -65,13 +65,13 @@ class FeedbackDisplayUI:
             # First show the most recent review prominently
             if review_history:
                 latest_review = review_history[-1]
-                review_analysis = latest_review.get("review_analysis", {})
-                iteration = latest_review.get("iteration_number", 0)
+                review_analysis = get_field_value(latest_review, "review_analysis", {})
+                iteration = get_field_value(latest_review, "iteration_number", 0)
                 
                 st.markdown(f"#### {t('your_final_review').format(iteration=iteration)}")
                 
                 # Format the review text with syntax highlighting
-                st.markdown("```text\n" + latest_review.get("student_review", "") + "\n```")
+                st.markdown("```text\n" + get_field_value(latest_review, "student_review", "") + "\n```")
                 
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -103,12 +103,12 @@ class FeedbackDisplayUI:
             # Show earlier reviews in an expander if there are multiple
             if len(review_history) > 1:
                 with st.expander(t("review_history"), expanded=False):
-                    tabs = st.tabs([f"{t('attempt')} {rev.get('iteration_number', i+1)}" for i, rev in enumerate(review_history)])
+                    tabs = st.tabs([f"{t('attempt')} {get_field_value(rev, 'iteration_number', i+1)}" for i, rev in enumerate(review_history)])
                     
                     for i, (tab, review) in enumerate(zip(tabs, review_history)):
                         with tab:
-                            review_analysis = review.get("review_analysis", {})
-                            st.markdown("```text\n" + review.get("student_review", "") + "\n```")
+                            review_analysis = get_field_value(review, "review_analysis", {})
+                            st.markdown("```text\n" + get_field_value(review, "student_review", "") + "\n```")
                             
                             # Use get_field_value for language-aware access
                             identified_count = get_field_value(review_analysis, "identified_count", 0)
@@ -178,7 +178,7 @@ class FeedbackDisplayUI:
                 delta=None
             )
                 
-        # Rest of the method remains unchanged...
+        # Could add other visualization code here if needed
     
     def _render_identified_issues(self, review_analysis: Dict[str, Any]):
         """Render identified issues section with language support"""
@@ -192,14 +192,18 @@ class FeedbackDisplayUI:
         st.subheader(f"{t('correctly_identified_issues')} ({len(identified_problems)})")
         
         for i, issue in enumerate(identified_problems, 1):
+            issue_text = issue
+            if isinstance(issue, dict):
+                issue_text = get_field_value(issue, "problem", str(issue))
+            
             st.markdown(
                 f"""
                 <div style="border-left: 4px solid #4CAF50; padding: 10px; margin: 10px 0; border-radius: 4px;">
-                <strong>✓ {i}. {issue}</strong>
+                <strong>✓ {i}. {issue_text}</strong>
                 </div>
                 """, 
                 unsafe_allow_html=True
-        )
+            )
 
     def _render_missed_issues(self, review_analysis: Dict[str, Any]):
         """Render missed issues section with language support"""
@@ -213,10 +217,14 @@ class FeedbackDisplayUI:
         st.subheader(f"{t('issues_missed')} ({len(missed_problems)})")
         
         for i, issue in enumerate(missed_problems, 1):
+            issue_text = issue
+            if isinstance(issue, dict):
+                issue_text = get_field_value(issue, "problem", str(issue))
+                
             st.markdown(
                 f"""
                 <div style="border-left: 4px solid #f44336; padding: 10px; margin: 10px 0; border-radius: 4px;">
-                <strong>✗ {i}. {issue}</strong>
+                <strong>✗ {i}. {issue_text}</strong>
                 </div>
                 """, 
                 unsafe_allow_html=True

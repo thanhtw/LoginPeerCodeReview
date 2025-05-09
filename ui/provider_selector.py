@@ -9,7 +9,7 @@ import streamlit as st
 import logging
 import os
 from typing import Dict, Any, Optional, Tuple, List, Callable
-from utils.language_utils import t, get_current_language
+from utils.language_utils import t, get_current_language, get_field_value
 
 # Configure logging
 logging.basicConfig(
@@ -52,12 +52,12 @@ class ProviderSelectorUI:
         Returns:
             bool: True if setup is complete, False if setup is still needed
         """
-        # Check if setup is already complete
-        if st.session_state.provider_selection.get("setup_complete", False):
+        # Check if setup is already complete - use get_field_value for language awareness
+        if get_field_value(st.session_state.provider_selection, "setup_complete", False):
             return True
         
         # Don't show modal if it's been explicitly hidden
-        if not st.session_state.provider_selection.get("show_setup_modal", True):
+        if not get_field_value(st.session_state.provider_selection, "show_setup_modal", True):
             return False
         
         # Create a modal-like UI for provider setup
@@ -111,10 +111,10 @@ class ProviderSelectorUI:
             else:  # Groq
                 st.info(f"{t('groq_api_message')}")
                 
-                # API key input
+                # API key input - use get_field_value for language awareness
                 api_key = st.text_input(
                     f"{t('groq_api_key')}", 
-                    value=st.session_state.provider_selection.get("groq_api_key", ""),
+                    value=get_field_value(st.session_state.provider_selection, "groq_api_key", ""),
                     type="password",
                     help="Get your API key from https://console.groq.com/"
                 )
@@ -140,12 +140,13 @@ class ProviderSelectorUI:
                             st.error(f"❌ {t('connect_groq_failed')}")
                             st.session_state.provider_selection["setup_error"] = "Failed to connect to Groq API"
             
-            # Display setup error if any
-            if st.session_state.provider_selection.get("setup_error"):
-                st.error(st.session_state.provider_selection["setup_error"])
+            # Display setup error if any - use get_field_value for language awareness
+            setup_error = get_field_value(st.session_state.provider_selection, "setup_error", None)
+            if setup_error:
+                st.error(setup_error)
         
-        # Return True if setup is complete, False otherwise
-        return st.session_state.provider_selection.get("setup_complete", False)
+        # Return True if setup is complete, False otherwise - use get_field_value
+        return get_field_value(st.session_state.provider_selection, "setup_complete", False)
     
     def render_provider_status(self):
         """Render the current provider status in the sidebar."""

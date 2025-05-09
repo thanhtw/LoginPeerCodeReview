@@ -10,7 +10,7 @@ import time
 import traceback
 from typing import Dict, List, Any, Optional, Callable
 from utils.code_utils import generate_comparison_report
-from utils.language_utils import t, get_current_language, get_field_value
+from utils.language_utils import t, get_current_language, get_field_value, get_state_attribute
 
 # Configure logging
 logging.basicConfig(
@@ -37,16 +37,20 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
     # Check if review process is completed
     review_completed = False
     if hasattr(state, 'current_iteration') and hasattr(state, 'max_iterations'):
-        if state.current_iteration > state.max_iterations:
+        current_iteration = get_state_attribute(state, 'current_iteration', 1)
+        max_iterations = get_state_attribute(state, 'max_iterations', 3)
+        
+        if current_iteration > max_iterations:
             review_completed = True
             logger.info(t("review_completed_max_iterations"))
-        elif hasattr(state, 'review_sufficient') and state.review_sufficient:
+        elif get_state_attribute(state, 'review_sufficient', False):
             review_completed = True
             logger.info(t("review_completed_sufficient"))
         
         # Check for all errors identified - HIGHEST PRIORITY CHECK
-        if state.review_history and len(state.review_history) > 0:
-            latest_review = state.review_history[-1]
+        review_history = get_state_attribute(state, 'review_history', [])
+        if review_history and len(review_history) > 0:
+            latest_review = review_history[-1]
             analysis = latest_review.analysis if hasattr(latest_review, 'analysis') else {}
             
             # Use get_field_value for language-aware field access
@@ -55,15 +59,16 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
             
             if identified_count == total_problems and total_problems > 0:
                 review_completed = True
-                if not hasattr(state, 'review_sufficient') or not state.review_sufficient:
-                    # Ensure state is consistent
-                    state.review_sufficient = True
+                # Ensure state is consistent
+                state.review_sufficient = True
                 logger.info(f"{t('review_completed_all_identified')} {total_problems} {t('issues')}")
 
     # Block access if review not completed
     if not review_completed:
+        current_iteration = get_state_attribute(state, 'current_iteration', 1)
+        max_iterations = get_state_attribute(state, 'max_iterations', 3)
         st.warning(f"{t('complete_review_first')}")
-        st.info(f"{t('current_process_review1')} {state.current_iteration-1}/{state.max_iterations} {t('current_process_review2')}")       
+        st.info(f"{t('current_process_review1')} {current_iteration-1}/{max_iterations} {t('current_process_review2')}")       
         return
     
     # Get the latest review analysis and history
@@ -71,11 +76,12 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
     review_history = []
     
     # Make sure we have review history
-    if state.review_history:
-        latest_review = state.review_history[-1]
+    if get_state_attribute(state, 'review_history', None):
+        review_history_obj = get_state_attribute(state, 'review_history', [])
+        latest_review = review_history_obj[-1] if review_history_obj else None
         
         # Convert review history to the format expected by FeedbackDisplayUI
-        for review in state.review_history:
+        for review in review_history_obj:
             review_history.append({
                 "iteration_number": review.iteration_number,
                 "student_review": review.student_review,
@@ -84,7 +90,7 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
     
     if latest_review and latest_review.analysis:
         # Get the original error count
-        original_error_count = state.original_error_count
+        original_error_count = get_state_attribute(state, 'original_error_count', 0)
         if original_error_count <= 0:
             # Use get_field_value for language-aware field access
             original_error_count = get_field_value(latest_review.analysis, "total_problems", 0)
@@ -101,11 +107,13 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
         )
 
     # If we have review history but no comparison report, generate one
-    if latest_review and latest_review.analysis and not state.comparison_report:
+    comparison_report = get_state_attribute(state, 'comparison_report', None)
+    if latest_review and latest_review.analysis and not comparison_report:
         try:
             # Get the known problems from the evaluation result instead of code_snippet.known_problems
-            if state.evaluation_result and 'found_errors' in state.evaluation_result:
-                found_errors = state.evaluation_result.get('found_errors', [])
+            evaluation_result = get_state_attribute(state, 'evaluation_result', None)
+            if evaluation_result and 'found_errors' in evaluation_result:
+                found_errors = get_field_value(evaluation_result, 'found_errors', [])
                 
                 # Generate a comparison report if it doesn't exist
                 state.comparison_report = generate_comparison_report(
@@ -116,7 +124,7 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
         except Exception as e:
             logger.error(f"{t('error')} {t('generating_comparison_report')}: {str(e)}")
             logger.error(traceback.format_exc())  # Log full stacktrace
-            if not state.comparison_report:
+            if not get_state_attribute(state, 'comparison_report', None):
                 state.comparison_report = (
                     f"# {t('review_feedback')}\n\n"
                     f"{t('error_generating_report')} "
@@ -128,7 +136,7 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
     
     # Update user statistics if AuthUI is provided and we have analysis
     if auth_ui and latest_analysis:       
-        current_iteration = getattr(state, 'current_iteration', 1) 
+        current_iteration = get_state_attribute(state, 'current_iteration', 1) 
         # Use get_field_value for language-aware field access
         identified_count = get_field_value(latest_analysis, "identified_count", 0)
         stats_key = f"stats_updated_{current_iteration}_{identified_count}"
@@ -181,9 +189,11 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
                 st.error(f"{t('error')} {t('updating_statistics')}: {str(e)}")
     
     # Display feedback results
+    review_summary = get_state_attribute(state, 'review_summary', None)
+    comparison_report = get_state_attribute(state, 'comparison_report', None)
     feedback_display_ui.render_results(
-        comparison_report=state.comparison_report,
-        review_summary=state.review_summary,
+        comparison_report=comparison_report,
+        review_summary=review_summary,
         review_analysis=latest_analysis,
         review_history=review_history        
     )

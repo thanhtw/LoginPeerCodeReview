@@ -140,7 +140,7 @@ class MySQLConnection:
                 # Log query with parameters
                 if params:
                     param_str = str(params)
-                    #logger.info(f"Executing query: {query} with params: {param_str}")
+                   
                 else:
                     logger.info(f"Executing query: {query}")
                 
@@ -156,13 +156,9 @@ class MySQLConnection:
                 else:
                     connection.commit()
                     affected_rows = cursor.rowcount
-                    cursor.close()
-                    #logger.info(f"Query executed successfully. Affected rows: {affected_rows}")
+                    cursor.close()                   
                     return affected_rows
             except mysql.connector.Error as e:
-                #logger.error(f"Error executing query: {str(e)}")
-                #logger.error(f"Query: {query}")
-                #logger.error(f"Params: {params}")
                 logger.error(traceback.format_exc())
                 
                 # Check for connection-related errors to retry

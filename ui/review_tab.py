@@ -10,7 +10,7 @@ import logging
 import time
 from typing import Dict, List, Any, Optional, Callable
 import datetime
-from utils.language_utils import t, get_current_language
+from utils.language_utils import t, get_current_language, get_field_value, get_state_attribute
 
 # Configure logging
 logging.basicConfig(
@@ -43,8 +43,8 @@ def process_student_review(workflow, student_review: str):
                 
             state = st.session_state.workflow_state
             
-            # Check if code snippet exists
-            if not state.code_snippet:
+            # Check if code snippet exists using get_state_attribute
+            if not get_state_attribute(state, 'code_snippet', None):
                 status.update(label=f"{t('error')}: {t('no_code_snippet_available')}", state="error")
                 st.session_state.error = t("please_generate_problem_first")
                 return False
@@ -56,7 +56,7 @@ def process_student_review(workflow, student_review: str):
                 return False
             
             # Store the current review in session state for display consistency
-            current_iteration = state.current_iteration
+            current_iteration = get_state_attribute(state, 'current_iteration', 1)
             st.session_state[f"submitted_review_{current_iteration}"] = student_review
             
             # Update status
@@ -84,10 +84,10 @@ def process_student_review(workflow, student_review: str):
             st.session_state.review_history_placeholder = []
             
             # Check for errors
-            if updated_state.error:
-                status.update(label=f"{t('error')}: {updated_state.error}", state="error")
-                st.session_state.error = updated_state.error
-                logger.error(f"{t('error')} during review analysis: {updated_state.error}")
+            if get_state_attribute(updated_state, 'error', None):
+                status.update(label=f"{t('error')}: {get_state_attribute(updated_state, 'error', '')}", state="error")
+                st.session_state.error = get_state_attribute(updated_state, 'error', '')
+                logger.error(f"{t('error')} during review analysis: {get_state_attribute(updated_state, 'error', '')}")
                 return False
             
             # Update session state
@@ -95,19 +95,21 @@ def process_student_review(workflow, student_review: str):
             
             # ENHANCED: Check if all errors were found and transition to feedback tab
             all_errors_found = False
-            if hasattr(updated_state, 'review_history') and updated_state.review_history:
-                latest_review = updated_state.review_history[-1]
-                if hasattr(latest_review, 'analysis') and latest_review.analysis:
-                    analysis = latest_review.analysis
-                    identified_count = analysis.get("identified_count", 0)
-                    total_problems = analysis.get("total_problems", 0)
-                    
-                    # If all errors are found, mark review as sufficient and set active tab
-                    if identified_count == total_problems and total_problems > 0:
-                        updated_state.review_sufficient = True
-                        st.session_state.active_tab = 2  # Switch to feedback tab
-                        all_errors_found = True
-                        logger.info("All errors found! Automatically switching to feedback tab.")
+            if hasattr(updated_state, 'review_history') and get_state_attribute(updated_state, 'review_history', []):
+                review_history = get_state_attribute(updated_state, 'review_history', [])
+                if review_history:
+                    latest_review = review_history[-1]
+                    if hasattr(latest_review, 'analysis') and latest_review.analysis:
+                        analysis = latest_review.analysis
+                        identified_count = get_field_value(analysis, "identified_count", 0)
+                        total_problems = get_field_value(analysis, "total_problems", 0)
+                        
+                        # If all errors are found, mark review as sufficient and set active tab
+                        if identified_count == total_problems and total_problems > 0:
+                            updated_state.review_sufficient = True
+                            st.session_state.active_tab = 2  # Switch to feedback tab
+                            all_errors_found = True
+                            logger.info("All errors found! Automatically switching to feedback tab.")
             
             # Log successful analysis
             logger.info(f"Review analysis complete for iteration {current_iteration}")
@@ -147,25 +149,25 @@ def render_review_tab(workflow, code_display_ui):
         st.info(f"{t('no_code_generated')}")
         return
         
-    # Check if we have a code snippet in the workflow state
-    if not hasattr(st.session_state.workflow_state, 'code_snippet') or not st.session_state.workflow_state.code_snippet:
+    # Check if we have a code snippet in the workflow state using get_state_attribute
+    state = st.session_state.workflow_state
+    if not get_state_attribute(state, 'code_snippet', None):
         st.info(f"{t('no_code_generated')}")
         return
     
     # Get known problems for instructor view
     known_problems = []
     
-    # Extract known problems from evaluation result
-    if (hasattr(st.session_state.workflow_state, 'evaluation_result') and 
-        st.session_state.workflow_state.evaluation_result and 
-        'found_errors' in st.session_state.workflow_state.evaluation_result):
-        found_errors = st.session_state.workflow_state.evaluation_result.get('found_errors', [])
+    # Extract known problems from evaluation result using get_state_attribute and get_field_value
+    evaluation_result = get_state_attribute(state, 'evaluation_result', None)
+    if evaluation_result and 'found_errors' in evaluation_result:
+        found_errors = get_field_value(evaluation_result, 'found_errors', [])
         if found_errors:
             known_problems = found_errors
     
     # If we couldn't get known problems from evaluation, try to get from selected errors
-    if not known_problems and hasattr(st.session_state.workflow_state, 'selected_specific_errors'):
-        selected_errors = st.session_state.workflow_state.selected_specific_errors
+    if not known_problems and hasattr(state, 'selected_specific_errors'):
+        selected_errors = get_state_attribute(state, 'selected_specific_errors', [])
         if selected_errors:
             # Format selected errors to match expected format
             known_problems = [
@@ -173,39 +175,53 @@ def render_review_tab(workflow, code_display_ui):
                 for error in selected_errors
             ]
     
-    # Display the code using the workflow state's code snippet and known problems
+    # As a last resort, try to extract from raw_errors in code_snippet
+    code_snippet = get_state_attribute(state, 'code_snippet', None)
+    if not known_problems and code_snippet and hasattr(code_snippet, 'raw_errors'):
+        raw_errors = code_snippet.raw_errors
+        if isinstance(raw_errors, dict):
+            for error_type, errors in raw_errors.items():
+                for error in errors:
+                    if isinstance(error, dict):
+                        error_type_str = error.get('type', error_type).upper()
+                        error_name = error.get('name', error.get('error_name', error.get('check_name', 'Unknown')))
+                        known_problems.append(f"{error_type_str} - {error_name}")
+    
+    # Always pass known_problems, the render_code_display function will handle showing
+    # the instructor view based on session state and checkbox status
     code_display_ui.render_code_display(
-        st.session_state.workflow_state.code_snippet, 
+        get_state_attribute(state, 'code_snippet', None),
         known_problems=known_problems
     )
     
-    # Get current review state
-    current_iteration = getattr(st.session_state.workflow_state, 'current_iteration', 1)
-    max_iterations = getattr(st.session_state.workflow_state, 'max_iterations', 3)
+    # Get current review state using get_state_attribute
+    current_iteration = get_state_attribute(state, 'current_iteration', 1)
+    max_iterations = get_state_attribute(state, 'max_iterations', 3)
     
     # Get the latest review if available
     latest_review = None
     targeted_guidance = None
     review_analysis = None
     
-    if hasattr(st.session_state.workflow_state, 'review_history') and st.session_state.workflow_state.review_history:
-        if len(st.session_state.workflow_state.review_history) > 0:
-            latest_review = st.session_state.workflow_state.review_history[-1]
-            targeted_guidance = getattr(latest_review, 'targeted_guidance', None)
-            review_analysis = getattr(latest_review, 'analysis', {})
+    review_history = get_state_attribute(state, 'review_history', [])
+    if review_history and len(review_history) > 0:
+        latest_review = review_history[-1]
+        targeted_guidance = getattr(latest_review, 'targeted_guidance', None)
+        review_analysis = getattr(latest_review, 'analysis', {})
 
     # ENHANCED: Check if all errors are found more reliably
     all_errors_found = False
     if review_analysis:
-        identified_count = review_analysis.get("identified_count", 0)
-        total_problems = review_analysis.get("total_problems", 0)
+        identified_count = get_field_value(review_analysis, "identified_count", 0)
+        total_problems = get_field_value(review_analysis, "total_problems", 0)
         if identified_count == total_problems and total_problems > 0:
             all_errors_found = True
             # Ensure state is updated when all errors are found
-            st.session_state.workflow_state.review_sufficient = True
+            state.review_sufficient = True
     
     # Only allow submission if we're under the max iterations
-    if current_iteration <= max_iterations and not st.session_state.workflow_state.review_sufficient and not all_errors_found:
+    review_sufficient = get_state_attribute(state, 'review_sufficient', False)
+    if current_iteration <= max_iterations and not review_sufficient and not all_errors_found:
         # Get the current student review (empty for first iteration)
         student_review = ""
         if latest_review is not None:
@@ -226,17 +242,21 @@ def render_review_tab(workflow, code_display_ui):
             
             # Check if all errors found or this was the last iteration
             all_found = False
-            if updated_state.review_history and len(updated_state.review_history) > 0:
-                latest = updated_state.review_history[-1]
+            review_history = get_state_attribute(updated_state, 'review_history', [])
+            if review_history and len(review_history) > 0:
+                latest = review_history[-1]
                 if hasattr(latest, 'analysis'):
                     analysis = latest.analysis
-                    identified = analysis.get("identified_count", 0)
-                    total = analysis.get("total_problems", 0)
+                    identified = get_field_value(analysis, "identified_count", 0)
+                    total = get_field_value(analysis, "total_problems", 0)
                     all_found = (identified == total and total > 0)
             
             # ENHANCED: Check if this was the last iteration or review is sufficient or all errors found
-            if (updated_state.current_iteration > updated_state.max_iterations or 
-                updated_state.review_sufficient or all_found):
+            current_iteration = get_state_attribute(updated_state, 'current_iteration', 1)
+            max_iterations = get_state_attribute(updated_state, 'max_iterations', 3)
+            review_sufficient = get_state_attribute(updated_state, 'review_sufficient', False)
+            
+            if (current_iteration > max_iterations or review_sufficient or all_found):
                 logger.info(t("review_process_complete"))
                 # Switch to feedback tab (index 2) and force rerun
                 st.session_state.active_tab = 2
@@ -255,7 +275,8 @@ def render_review_tab(workflow, code_display_ui):
         )
     else:
         # Display appropriate message based on why review is blocked
-        if st.session_state.workflow_state.review_sufficient or all_errors_found:
+        review_sufficient = get_state_attribute(state, 'review_sufficient', False)
+        if review_sufficient or all_errors_found:
             st.success(f"{t('all_errors_found')}")
             # ENHANCED: If all errors found, ensure we move to the feedback tab
             if st.session_state.active_tab != 2:

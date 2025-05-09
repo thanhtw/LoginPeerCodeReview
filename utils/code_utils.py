@@ -11,7 +11,7 @@ import os
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 from langchain_core.language_models import BaseLanguageModel
-from utils.language_utils import get_llm_instructions, get_current_language
+from utils.language_utils import get_llm_instructions, get_current_language, get_field_value, get_state_attribute  # Add imports
 
 # Import prompt templates
 from prompts import get_prompt_template
@@ -22,15 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def add_line_numbers(code: str) -> str:
-    """
-    Add line numbers to code snippet.
-    
-    Args:
-        code: The code snippet to add line numbers to
-        
-    Returns:
-        Code with line numbers
-    """
+    """Add line numbers to code snippet."""
     lines = code.splitlines()
     max_line_num = len(lines)
     padding = len(str(max_line_num))
@@ -45,21 +37,7 @@ def add_line_numbers(code: str) -> str:
     return "\n".join(numbered_lines)
 
 def create_code_generation_prompt(code_length: str, difficulty_level: str, selected_errors: list, domain: str = None, include_error_annotations: bool = True) -> str:
-    """
-    Create a concise prompt for generating Java code with intentional errors.
-    Enhanced to emphasize the exact number of errors required and ensure one per error type.
-    Now uses language-specific templates based on current language.
-    
-    Args:
-        code_length: Length of code (short, medium, long)
-        difficulty_level: Difficulty level (easy, medium, hard)
-        selected_errors: List of errors to include in the code
-        domain: Domain context for the code
-        include_error_annotations: Whether to include error annotations
-        
-    Returns:
-        Optimized prompt string for LLM
-    """
+    """Create a concise prompt for generating Java code with intentional errors."""
     # Define code complexity by length
     complexity = {
         "short": "1 simple class with 1-2 basic methods (15-30 lines total)",
@@ -73,10 +51,10 @@ def create_code_generation_prompt(code_length: str, difficulty_level: str, selec
     # Format errors concisely with only essential information
     error_list = []
     for i, error in enumerate(selected_errors, 1):
-        error_type = error.get("type", "unknown").upper()
-        name = error.get("name", "unknown")
-        description = error.get("description", "")
-        implementation_guide = error.get("implementation_guide", "")
+        error_type = get_field_value(error, "type", "unknown").upper()
+        name = get_field_value(error, "name", "unknown")
+        description = get_field_value(error, "description", "")
+        implementation_guide = get_field_value(error, "implementation_guide", "")
         
         error_entry = f"{i}. {error_type} - {name}: {description}"
         if implementation_guide:
@@ -118,16 +96,7 @@ def create_code_generation_prompt(code_length: str, difficulty_level: str, selec
     return prompt
 
 def format_template_safely(template: str, **kwargs) -> str:
-    """
-    Format a template string safely, handling potential formatting errors.
-    
-    Args:
-        template: Template string with {placeholders}
-        **kwargs: Key-value pairs to substitute into the template
-        
-    Returns:
-        Formatted string
-    """
+    """Format a template string safely, handling potential formatting errors."""
     try:
         # First attempt: use standard string formatting
         return template.format(**kwargs)
@@ -148,42 +117,17 @@ def format_template_safely(template: str, **kwargs) -> str:
                 f"Errors to find:\n{kwargs.get('error_instructions', '')}")
 
 def create_evaluation_prompt(code: str, requested_errors: list) -> str:
-    """
-    Create a clear and concise prompt for evaluating whether code contains required errors.
-    Improved with detailed evaluation criteria and structured output format.
-    Now uses language-specific templates based on current language.
-    
-    Args:
-        code: The code to evaluate
-        requested_errors: List of errors that should be in the code
-        
-    Returns:
-        Evaluation prompt string
-    """
+    """Create a clear and concise prompt for evaluating whether code contains required errors."""
     # Count the exact number of requested errors
     error_count = len(requested_errors)
     
     # Format requested errors clearly with language-aware field access
     error_list = []
     for i, error in enumerate(requested_errors, 1):
-        # Get error type and name with fallbacks for different field names
-        error_type = error.get("type", "").upper()
-        
-        # Handle language variations for field names
-        name = None
-        if "name" in error:
-            name = error.get("name", "")
-        elif "error_name" in error:
-            name = error.get("error_name", "")
-        elif "錯誤名稱" in error:  # Traditional Chinese field name
-            name = error.get("錯誤名稱", "")
-            
-        # Get description with language variations
-        description = ""
-        if "description" in error:
-            description = error.get("description", "")
-        elif "描述" in error:  # Traditional Chinese field name
-            description = error.get("描述", "")
+        # Get error type and name with language-aware access
+        error_type = get_field_value(error, "type", "").upper()
+        name = get_field_value(error, "name", "")
+        description = get_field_value(error, "description", "")
         
         # If we still don't have a name, use a fallback
         if not name:
@@ -210,21 +154,7 @@ def create_evaluation_prompt(code: str, requested_errors: list) -> str:
     return prompt
 
 def create_regeneration_prompt(code: str, domain: str, missing_errors: list, found_errors: list, requested_errors: list) -> str:
-    """
-    Create a focused prompt for regenerating code with missing errors and removing extra errors.
-    Enhanced to provide clear instructions for exact error requirements.
-    Now uses language-specific templates based on current language.
-    
-    Args:
-        code: The original code
-        domain: Domain of the code
-        missing_errors: List of errors that need to be added
-        found_errors: List of errors that are already in the code
-        requested_errors: List of all requested errors
-        
-    Returns:
-        Regeneration prompt string
-    """
+    """Create a focused prompt for regenerating code with missing errors and removing extra errors."""
     # Total requested errors count
     total_requested = len(requested_errors)
     
@@ -251,19 +181,7 @@ def create_regeneration_prompt(code: str, domain: str, missing_errors: list, fou
     return prompt
 
 def create_review_analysis_prompt(code: str, known_problems: list, student_review: str) -> str:
-    """
-    Create an optimized prompt for analyzing student code reviews.
-    Enhanced with educational assessment focus and better structured output requirements.
-    Now uses language-specific templates based on current language.
-    
-    Args:
-        code: The code being reviewed
-        known_problems: List of known problems in the code
-        student_review: Student's review text
-        
-    Returns:
-        Review analysis prompt string
-    """
+    """Create an optimized prompt for analyzing student code reviews."""
     # Count known problems
     problem_count = len(known_problems)
     
@@ -288,43 +206,31 @@ def create_review_analysis_prompt(code: str, known_problems: list, student_revie
     return prompt
 
 def create_feedback_prompt(code: str, known_problems: list, review_analysis: dict) -> str:
-    """
-    Create an optimized prompt for generating concise, focused guidance on student reviews.
-    Enhanced with clearer educational goals and example output.
-    Now uses language-specific templates based on current language.
-    
-    Args:
-        code: The code being reviewed
-        known_problems: List of known problems in the code
-        review_analysis: Analysis of the student's review
-        
-    Returns:
-        Feedback prompt string
-    """
-    # Extract data from review analysis
-    identified = review_analysis.get("identified_count", 0)
-    total = review_analysis.get("total_problems", len(known_problems))
-    accuracy = review_analysis.get("identified_percentage", 0)
-    iteration = review_analysis.get("iteration_count", 1)
-    max_iterations = review_analysis.get("max_iterations", 3)
-    remaining = review_analysis.get("remaining_attempts", max_iterations - iteration)
+    """Create an optimized prompt for generating concise, focused guidance on student reviews."""
+    # Extract data from review analysis with language-aware access
+    identified = get_field_value(review_analysis, "identified_count", 0)
+    total = get_field_value(review_analysis, "total_problems", len(known_problems))
+    accuracy = get_field_value(review_analysis, "identified_percentage", 0)
+    iteration = get_field_value(review_analysis, "iteration_count", 1)
+    max_iterations = get_field_value(review_analysis, "max_iterations", 3)
+    remaining = get_field_value(review_analysis, "remaining_attempts", max_iterations - iteration)
     
     # Format identified problems
-    identified_problems = review_analysis.get("identified_problems", [])
+    identified_problems = get_field_value(review_analysis, "identified_problems", [])
     identified_text = ""
     for problem in identified_problems:
         if isinstance(problem, dict):
-            problem_text = problem.get("problem", "")
+            problem_text = get_field_value(problem, "problem", "")
             identified_text += f"- {problem_text}\n"
         else:
             identified_text += f"- {problem}\n"
     
     # Format missed problems
-    missed_problems = review_analysis.get("missed_problems", [])
+    missed_problems = get_field_value(review_analysis, "missed_problems", [])
     missed_text = ""
     for problem in missed_problems:
         if isinstance(problem, dict):
-            problem_text = problem.get("problem", "")
+            problem_text = get_field_value(problem, "problem", "")
             missed_text += f"- {problem_text}\n"
         else:
             missed_text += f"- {problem}\n"
@@ -352,18 +258,7 @@ def create_feedback_prompt(code: str, known_problems: list, review_analysis: dic
 
 def generate_comparison_report(evaluation_errors: List[str], review_analysis: Dict[str, Any], 
                               review_history: List[Dict[str, Any]] = None, llm = None) -> str:
-    """
-    Generate a comparison report with proper language handling
-    
-    Args:
-        evaluation_errors: List of errors found by the evaluation
-        review_analysis: Analysis of the latest student review
-        review_history: History of all review attempts
-        llm: Optional language model to generate the report
-        
-    Returns:
-        Formatted comparison report
-    """
+    """Generate a comparison report with proper language handling."""
     # If LLM is provided, use it to generate the report with correct language
     if llm:
         try:
@@ -393,8 +288,8 @@ def generate_comparison_report(evaluation_errors: List[str], review_analysis: Di
             from utils.language_utils import t
             
             # Get identified, missed and false positive info with language awareness
-            identified_count = review_analysis.get("identified_count", 0)
-            total_problems = review_analysis.get("total_problems", 0)
+            identified_count = get_field_value(review_analysis, "identified_count", 0)
+            total_problems = get_field_value(review_analysis, "total_problems", 0)
             accuracy = (identified_count / total_problems * 100) if total_problems > 0 else 0
             
             # Create a basic report with translated field names
@@ -410,8 +305,8 @@ def generate_comparison_report(evaluation_errors: List[str], review_analysis: Di
         from utils.language_utils import t
         
         # Get identified, missed and false positive info with language awareness
-        identified_count = review_analysis.get("identified_count", 0)
-        total_problems = review_analysis.get("total_problems", 0)
+        identified_count = get_field_value(review_analysis, "identified_count", 0)
+        total_problems = get_field_value(review_analysis, "total_problems", 0)
         accuracy = (identified_count / total_problems * 100) if total_problems > 0 else 0
         
         # Create a basic report with translated field names
@@ -424,16 +319,7 @@ def generate_comparison_report(evaluation_errors: List[str], review_analysis: Di
         )
 
 def extract_both_code_versions(response) -> Tuple[str, str]:
-    """
-    Extract both annotated and clean code versions from LLM response.
-    Enhanced to better handle Groq response format differences.
-    
-    Args:
-        response: Text response from LLM or AIMessage/ChatMessage object
-        
-    Returns:
-        Tuple of (annotated_code, clean_code)
-    """
+    """Extract both annotated and clean code versions from LLM response."""
     # Check for None or empty response
     if not response:
         return "", ""
@@ -501,62 +387,8 @@ def extract_both_code_versions(response) -> Tuple[str, str]:
     
     return annotated_code, clean_code
 
-def generate_comparison_report(evaluation_errors: List[str], review_analysis: Dict[str, Any], 
-                              review_history: List[Dict[str, Any]] = None, llm = None) -> str:
-    """
-    Generate a comparison report showing progress across review attempts.
-    Uses an LLM when available, with fallback to static generation.
-    
-    Args:
-        evaluation_errors: List of errors found by the evaluation
-        review_analysis: Analysis of the latest student review
-        review_history: History of all review attempts
-        llm: Optional language model to generate the report
-        
-    Returns:
-        Formatted comparison report
-    """
-    # If LLM is provided, use it to generate the report
-    if llm:
-        try:
-            # Create the prompt for the LLM
-            prompt = create_comparison_report_prompt(evaluation_errors, review_analysis, review_history)
-            
-            # Generate the report with the LLM
-            response = llm.invoke(prompt)
-            
-            # Process the response
-            if hasattr(response, 'content'):
-                report = response.content
-            elif isinstance(response, dict) and 'content' in response:
-                report = response['content']
-            else:
-                report = str(response)
-            
-            # Clean up the report
-            report = report.replace('\\n', '\n')
-            
-            return report
-        except Exception as e:
-            # Log the error
-            logger.error(f"Error generating comparison report with LLM: {str(e)}")
-            # Fall back to static generation
-            return ""
-    else:
-        # If no LLM is provided, use static generation
-        return ""
-
 def process_llm_response(response):
-    """
-    Process LLM response to handle different formats from different providers
-    with improved error handling and type safety.
-    
-    Args:
-        response: Response from LLM (string, AIMessage, or dict)
-        
-    Returns:
-        Cleaned string content
-    """
+    """Process LLM response to handle different formats from different providers."""
     # Handle None case
     if response is None:
         return ""
@@ -624,18 +456,18 @@ def get_error_count_from_state(state: Any, difficulty_level: str = "medium") -> 
         Number of errors to use
     """
     # First try to get error count from selected_specific_errors if available
-    if hasattr(state, 'selected_specific_errors') and state.selected_specific_errors:
-        return len(state.selected_specific_errors)
+    if get_state_attribute(state, 'selected_specific_errors') and len(get_state_attribute(state, 'selected_specific_errors', [])) > 0:
+        return len(get_state_attribute(state, 'selected_specific_errors', []))
     
     # Next try to get from original_error_count if it's been set
-    if hasattr(state, 'original_error_count') and state.original_error_count > 0:
-        return state.original_error_count
+    if get_state_attribute(state, 'original_error_count', 0) > 0:
+        return get_state_attribute(state, 'original_error_count', 0)
     
     # If we have selected error categories, use their count
-    if hasattr(state, 'selected_error_categories'):
-        selected_categories = state.selected_error_categories
+    if get_state_attribute(state, 'selected_error_categories'):
+        selected_categories = get_state_attribute(state, 'selected_error_categories', {})
         if selected_categories:
-            java_errors = selected_categories.get("java_errors", [])
+            java_errors = get_field_value(selected_categories, "java_errors", [])
             # Use at least one error per selected category
             category_count = len(java_errors)
             if category_count > 0:

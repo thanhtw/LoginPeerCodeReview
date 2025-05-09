@@ -10,7 +10,7 @@ import json
 import logging
 import random
 from typing import Dict, List, Any, Optional, Set, Union, Tuple
-from utils.language_utils import get_current_language
+from utils.language_utils import get_current_language, get_field_value
 
 # Configure logging
 logging.basicConfig(
@@ -186,17 +186,14 @@ class JsonErrorRepository:
             for error in errors:
                 mapped_error = {}
                 
-                # Map Chinese field names to English field names
-                if '錯誤名稱' in error:
-                    mapped_error['error_name'] = error['錯誤名稱']
-                if '描述' in error:
-                    mapped_error['description'] = error['描述']
-                if '實作範例' in error:
-                    mapped_error['implementation_guide'] = error['實作範例']
+                # Map Chinese field names to English field names using get_field_value
+                mapped_error['error_name'] = get_field_value(error, "error_name", error.get('錯誤名稱', ''))
+                mapped_error['description'] = get_field_value(error, "description", error.get('描述', ''))
+                mapped_error['implementation_guide'] = get_field_value(error, "implementation_guide", error.get('實作範例', ''))
                     
                 # Add any other fields directly
                 for key, value in error.items():
-                    if key not in ['錯誤名稱', '描述', '實作範例']:
+                    if key not in ['錯誤名稱', '描述', '實作範例', 'error_name', 'description', 'implementation_guide']:
                         mapped_error[key] = value
                         
                 mapped_errors.append(mapped_error)
@@ -242,7 +239,8 @@ class JsonErrorRepository:
         if error_type == "java_error":
             for category in self.java_errors:
                 for error in self.java_errors[category]:
-                    if error.get("error_name") == error_name:
+                    # Use get_field_value for language-aware access
+                    if get_field_value(error, "error_name", "") == error_name:
                         return error
         return None
     
@@ -269,9 +267,9 @@ class JsonErrorRepository:
                     all_errors.append({
                         "type": "java_error",
                         "category": category,
-                        "name": error["error_name"],
-                        "description": error["description"],
-                        "implementation_guide": error.get("implementation_guide", "")
+                        "name": get_field_value(error, "error_name", ""),
+                        "description": get_field_value(error, "description", ""),
+                        "implementation_guide": get_field_value(error, "implementation_guide", "")
                     })
         
         # Select random errors
@@ -321,10 +319,10 @@ class JsonErrorRepository:
             # Process each selected error to ensure it has all required fields
             for error in specific_errors:
                 processed_error = error.copy()
-                error_type = processed_error.get("type", "Unknown")
-                name = processed_error.get("name", "Unknown")
-                description = processed_error.get("description", "")
-                category = processed_error.get("category", "")
+                error_type = get_field_value(processed_error, "type", "Unknown")
+                name = get_field_value(processed_error, "name", "Unknown")
+                description = get_field_value(processed_error, "description", "")
+                category = get_field_value(processed_error, "category", "")
                 
                 # Add implementation guide if available
                 implementation_guide = self._get_implementation_guide(error_type, name, category)
@@ -375,9 +373,9 @@ class JsonErrorRepository:
                             all_errors.append({
                                 "type": "java_error",
                                 "category": category,
-                                "name": error["error_name"],  # Now this will work with any language
-                                "description": error["description"],
-                                "implementation_guide": error.get("implementation_guide", "")
+                                "name": get_field_value(error, "error_name", ""),  # Use get_field_value for language-aware access
+                                "description": get_field_value(error, "description", ""),
+                                "implementation_guide": get_field_value(error, "implementation_guide", "")
                             })
             
             # If we have more errors than needed, randomly select the required number
@@ -391,17 +389,17 @@ class JsonErrorRepository:
             # Format problem descriptions
             problem_descriptions = []
             for error in selected_errors:
-                error_type = error.get("type", "Unknown")
-                name = error.get("name", "Unknown")
-                description = error.get("description", "")
-                category = error.get("category", "")
+                error_type = get_field_value(error, "type", "Unknown")
+                name = get_field_value(error, "name", "Unknown")
+                description = get_field_value(error, "description", "")
+                category = get_field_value(error, "category", "")
                 
                 problem_descriptions.append(f"Java Error - {name}: {description} (Category: {category})")
             
             # Print final selected errors
             print("\n--- FINAL SELECTED ERRORS ---")
             for i, error in enumerate(selected_errors, 1):
-                print(f"  {i}. {error.get('type', 'Unknown')} - {error.get('name', 'Unknown')} ({error.get('category', 'Unknown')})")
+                print(f"  {i}. {get_field_value(error, 'type', 'Unknown')} - {get_field_value(error, 'name', 'Unknown')} ({get_field_value(error, 'category', 'Unknown')})")
             print("======================================")
             
             return selected_errors, problem_descriptions
@@ -425,8 +423,8 @@ class JsonErrorRepository:
         if error_type == "java_error":
             if category in self.java_errors:
                 for error in self.java_errors[category]:
-                    if error.get("error_name") == error_name:
-                        return error.get("implementation_guide")
+                    if get_field_value(error, "error_name", "") == error_name:
+                        return get_field_value(error, "implementation_guide", "")
         return None
 
     def search_errors(self, search_term: str) -> List[Dict[str, Any]]:
@@ -445,15 +443,15 @@ class JsonErrorRepository:
         # Search java errors
         for category in self.java_errors:
             for error in self.java_errors[category]:
-                name = error.get("error_name", "").lower()
-                description = error.get("description", "").lower()
+                name = get_field_value(error, "error_name", "").lower()
+                description = get_field_value(error, "description", "").lower()
                 
                 if search_term in name or search_term in description:
                     results.append({
                         "type": "java_error",
                         "category": category,
-                        "name": error["error_name"],
-                        "description": error["description"]
+                        "name": get_field_value(error, "error_name", ""),
+                        "description": get_field_value(error, "description", "")
                     })
         
         return results
@@ -472,11 +470,11 @@ class JsonErrorRepository:
         if error_type == "java_error":
             for category, errors in self.java_errors.items():
                 for error in errors:
-                    if error.get("error_name") == error_name:
+                    if get_field_value(error, "error_name", "") == error_name:
                         return {
                             "type": "java_error",
                             "category": category,
-                            "name": error["error_name"],
-                            "description": error["description"]
+                            "name": get_field_value(error, "error_name", ""),
+                            "description": get_field_value(error, "description", "")
                         }
         return None

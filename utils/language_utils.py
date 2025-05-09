@@ -171,3 +171,46 @@ def get_field_value(data: dict, english_name: str, default=None):
                 
     # Return default if field not found
     return default
+
+def get_state_attribute(state, english_name, default=None):
+    """
+    Get an attribute value from a state object with language awareness.
+    
+    Args:
+        state: State object
+        english_name: The attribute name in English
+        default: Default value to return if attribute not found
+        
+    Returns:
+        The attribute value or default if not found
+    """
+    # Check if the object is None
+    if state is None:
+        return default
+        
+    # Try the English attribute name first
+    if hasattr(state, english_name):
+        return getattr(state, english_name)
+        
+    # Common Chinese translations for attribute names
+    chinese_mappings = {
+        "review_sufficient": ["審查充分", "審查足夠"],
+        "current_step": ["當前步驟", "目前步驟"],
+        "current_iteration": ["當前迭代", "目前迭代"],
+        "max_iterations": ["最大迭代次數", "最大迭代"],
+        "review_summary": ["審查摘要", "審查總結"],
+        "comparison_report": ["比較報告", "對比報告"],
+        "code_snippet": ["代碼片段", "程式碼片段"],
+        "evaluation_result": ["評估結果", "評價結果"],
+        "original_error_count": ["原始錯誤數量", "原始錯誤計數"]
+        # Add other state attributes as needed
+    }
+    
+    # Try possible Chinese attribute names
+    if english_name in chinese_mappings:
+        for chinese_name in chinese_mappings[english_name]:
+            if hasattr(state, chinese_name):
+                return getattr(state, chinese_name)
+    
+    # Return default if attribute not found
+    return default

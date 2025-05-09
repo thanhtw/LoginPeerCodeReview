@@ -1,10 +1,4 @@
-"""
-Workflow Nodes for Java Peer Review Training System.
-
-This module contains the node implementations for the LangGraph workflow,
-separating node logic from graph construction for better maintainability.
-"""
-
+# At the top of the file, update imports
 import logging
 import re
 from typing import Dict, Any, List, Tuple, Optional
@@ -12,7 +6,7 @@ from typing import Dict, Any, List, Tuple, Optional
 from state_schema import WorkflowState, CodeSnippet
 from utils.code_utils import extract_both_code_versions, create_regeneration_prompt, get_error_count_from_state
 import random
-from utils.language_utils import t, get_field_value  
+from utils.language_utils import t, get_field_value, get_state_attribute  # Add proper imports
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -52,19 +46,19 @@ class WorkflowNodes:
             Updated workflow state with generated code
         """
         try:
-            # Get parameters from state
-            code_length = state.code_length
-            difficulty_level = state.difficulty_level
-            selected_error_categories = state.selected_error_categories
-            selected_specific_errors = state.selected_specific_errors
+            # Get parameters from state with language-aware access
+            code_length = get_state_attribute(state, "code_length", "medium")
+            difficulty_level = get_state_attribute(state, "difficulty_level", "medium")
+            selected_error_categories = get_state_attribute(state, "selected_error_categories", {})
+            selected_specific_errors = get_state_attribute(state, "selected_specific_errors", [])
             
             # Reset state for a fresh generation
             state.evaluation_attempts = 0
             state.evaluation_result = None
             state.code_generation_feedback = None
 
-             # Randomly select a domain if not already set
-            if not state.domain:
+            # Randomly select a domain if not already set
+            if not get_state_attribute(state, "domain", None):
                 # Use the domains from code_generator if available
                 if hasattr(self.code_generator, 'domains') and self.code_generator.domains:
                     state.domain = random.choice(self.code_generator.domains)
@@ -77,7 +71,10 @@ class WorkflowNodes:
                     ]
                     state.domain = random.choice(domains)
                 
-                logger.info(f"Selected domain for code generation: {state.domain}")            
+                logger.info(f"Selected domain for code generation: {get_state_attribute(state, 'domain', 'general')}")
+            
+            # Use the domain from state
+            domain = get_state_attribute(state, "domain", "general")
             
             # Determine whether we're using specific errors or categories
             using_specific_errors = len(selected_specific_errors) > 0
@@ -96,14 +93,14 @@ class WorkflowNodes:
                 original_error_count = len(selected_errors)
             else:
                 # Using category-based selection mode
-                if not selected_error_categories or not selected_error_categories.get("java_errors", []):
+                if not selected_error_categories or not get_field_value(selected_error_categories, "java_errors", []):
                     state.error = t("no_categories")
                     return state
                             
                 logger.info(f"Using category-based mode with categories: {selected_error_categories}")
                 
                 # Get exact number based on difficulty
-                required_error_count = get_error_count_from_state(difficulty_level)
+                required_error_count = get_error_count_from_state(state, difficulty_level)
                 
                 selected_errors, _ = self.error_repository.get_errors_for_llm(
                     selected_categories=selected_error_categories,
@@ -128,13 +125,12 @@ class WorkflowNodes:
             self._log_selected_errors(selected_errors)
             logger.info(f"Final error count for generation: {len(selected_errors)}")
             
-            # Generate code with selected errors - ensure clear expectations for the LLM
-            # Explicitly include the count in the prompt to emphasize the requirement
+            # Generate code with selected errors
             response = self.code_generator._generate_with_llm(
                 code_length=code_length,
                 difficulty_level=difficulty_level,
                 selected_errors=selected_errors,
-                domain=state.domain  # Use domain from state
+                domain=domain
             )
 
             # Extract both annotated and clean versions
@@ -142,12 +138,12 @@ class WorkflowNodes:
 
             # Create code snippet object
             code_snippet = CodeSnippet(
-                code=annotated_code,  # Store annotated version with error comments
-                clean_code=clean_code,  # Store clean version without error comments
+                code=annotated_code,
+                clean_code=clean_code,
                 raw_errors={
                     "java_errors": selected_errors
                 },
-                expected_error_count=original_error_count  # Store the original error count in the code snippet
+                expected_error_count=original_error_count
             )
                                     
             # Update state with the original error count for consistency
@@ -155,7 +151,7 @@ class WorkflowNodes:
             
             # Update state
             state.code_snippet = code_snippet
-            state.current_step = "evaluate"  # Set to evaluate instead of review to ensure proper workflow
+            state.current_step = "evaluate"
             return state
                     
         except Exception as e:           
@@ -163,73 +159,6 @@ class WorkflowNodes:
             state.error = f"{t('error')} generating code: {str(e)}"
             return state
 
-    def regenerate_code_node(self, state: WorkflowState) -> WorkflowState:
-        """
-        Regenerate code based on evaluation feedback.
-        
-        Args:
-            state: Current workflow state
-            
-        Returns:
-            Updated workflow state with regenerated code
-        """
-        try:
-            logger.info(f"Starting enhanced code regeneration (Attempt {state.evaluation_attempts})")
-            
-            # Use the code generation feedback to generate improved code
-            feedback_prompt = state.code_generation_feedback
-            
-            # Generate code with feedback prompt
-            if hasattr(self.code_generator, 'llm') and self.code_generator.llm:
-                # Log the regeneration prompt before sending to LLM
-                metadata = {
-                    "code_length": state.code_length,
-                    "difficulty_level": state.difficulty_level,
-                    "domain":  state.domain,
-                    "selected_errors": state.selected_error_categories,
-                    "attempt": state.evaluation_attempts,
-                    "max_attempts": state.max_evaluation_attempts
-                }
-                
-                # Log the prompt before it's sent to the LLM
-                self.llm_logger.log_regeneration_prompt(feedback_prompt, metadata)
-                
-                # Generate the code
-                response = self.code_generator.llm.invoke(feedback_prompt)
-                
-                # Log the full regeneration with response
-                self.llm_logger.log_code_regeneration(feedback_prompt, response, metadata)
-                
-                # Process the response
-                annotated_code, clean_code = extract_both_code_versions(response)                
-                
-                # Get requested errors from state
-                requested_errors = self._extract_requested_errors(state)
-                
-                # Create updated code snippet
-                state.code_snippet = CodeSnippet(
-                    code=annotated_code,
-                    clean_code=clean_code,
-                    raw_errors={
-                        "java_errors": selected_errors
-                    }
-                )
-                
-                # Move to evaluation step again
-                state.current_step = "evaluate"
-                logger.info(f"Code regenerated successfully on attempt {state.evaluation_attempts}")
-                
-                return state
-            else:
-                # If no LLM available, fall back to standard generation
-                logger.warning("No LLM available for regeneration. Falling back to standard generation.")
-                return self.generate_code_node(state)
-            
-        except Exception as e:                 
-            logger.error(f"Error regenerating code: {str(e)}", exc_info=True)
-            state.error = f"Error regenerating code: {str(e)}"
-            return state
-        
     def evaluate_code_node(self, state: WorkflowState) -> WorkflowState:
         """
         Evaluate generated code to ensure it contains the requested errors.
@@ -244,22 +173,23 @@ class WorkflowNodes:
             logger.info("Starting code evaluation node")
             
             # Validate code snippet
-            if not state.code_snippet:
+            code_snippet = get_state_attribute(state, "code_snippet", None)
+            if not code_snippet:
                 state.error = t("no_code_snippet_evaluation")
                 return state
                     
             # Get the code with annotations
-            code = state.code_snippet.code
+            code = code_snippet.code
             
             # Get requested errors from state
             requested_errors = self._extract_requested_errors(state)
             requested_count = len(requested_errors)
             
             # Ensure we're using the original error count for consistency
-            original_error_count = state.original_error_count
-            if original_error_count == 0 and hasattr(state.code_snippet, 'expected_error_count'):
+            original_error_count = get_state_attribute(state, "original_error_count", 0)
+            if original_error_count == 0 and hasattr(code_snippet, 'expected_error_count'):
                 # If not set in state, try to get it from code snippet
-                original_error_count = state.code_snippet.expected_error_count
+                original_error_count = code_snippet.expected_error_count
                 # Update state with this count
                 state.original_error_count = original_error_count
                 
@@ -292,12 +222,12 @@ class WorkflowNodes:
                 # Add the original error count to the evaluation result
                 evaluation_result["original_error_count"] = original_error_count
 
-                # IMPORTANT: Explicitly set valid flag based on missing and extra errors
-                missing_errors = evaluation_result.get('missing_errors', [])
+                # IMPORTANT: Explicitly set valid flag based on missing errors
+                missing_errors = get_field_value(evaluation_result, 'missing_errors', [])
                 
-                # Only valid if no missing errors and no extra errors
+                # Only valid if no missing errors
                 has_missing = len(missing_errors) > 0               
-                evaluation_result['valid'] = not (has_missing)
+                evaluation_result['valid'] = not has_missing
                 
                 # Log explicit validation status
                 logger.info(f"Code validation: valid={evaluation_result['valid']}, " 
@@ -308,17 +238,16 @@ class WorkflowNodes:
             state.evaluation_attempts += 1
             
             # Log evaluation results
-            found_count = len(evaluation_result.get('found_errors', []))
-            missing_count = len(evaluation_result.get('missing_errors', []))
+            found_count = len(get_field_value(evaluation_result, 'found_errors', []))
+            missing_count = len(get_field_value(evaluation_result, 'missing_errors', []))
             logger.info(f"Code evaluation complete: {found_count}/{original_error_count} errors implemented, {missing_count} missing")
-            
             
             feedback = None
             
-            # If we have missing errors or extra errors, we need to regenerate the code
+            # If we have missing errors, we need to regenerate the code
             needs_regeneration = missing_count > 0
             
-            # If we have extra errors, use the updated regeneration function that handles extras
+            # Generate feedback for regeneration
             if missing_count > 0:
                 logger.warning(f"Missing {missing_count} out of {original_error_count} requested errors")
                 
@@ -332,40 +261,42 @@ class WorkflowNodes:
                     # Use the regeneration prompt with emphasis on adding missing errors
                     feedback = create_regeneration_prompt(
                         code=code,
-                        domain=state.domain,
-                        missing_errors=evaluation_result.get('missing_errors', []),
-                        found_errors=evaluation_result.get('found_errors', []),
+                        domain=get_state_attribute(state, "domain", "general"),
+                        missing_errors=get_field_value(evaluation_result, 'missing_errors', []),
+                        found_errors=get_field_value(evaluation_result, 'found_errors', []),
                         requested_errors=requested_errors
                     )
             else:
-                # No missing or extra errors - we're good!
+                # No missing errors - we're good!
                 logger.info(f"All {original_error_count} requested errors implemented correctly")
                              
                 feedback = create_regeneration_prompt(
                     code=code,
-                    domain=state.domain,
+                    domain=get_state_attribute(state, "domain", "general"),
                     missing_errors=[],
-                    found_errors=evaluation_result.get('found_errors', []),
+                    found_errors=get_field_value(evaluation_result, 'found_errors', []),
                     requested_errors=requested_errors                    
                 )
                     
             state.code_generation_feedback = feedback
           
-            # IMPROVED DECISION LOGIC: Prioritize fixing missing errors over max attempts
-            # If evaluation passed (all errors implemented with exact count)
-            if evaluation_result.get("valid", False):
+            # Improved decision logic for next step
+            evaluation_valid = get_field_value(evaluation_result, "valid", False)
+            evaluation_attempts = get_state_attribute(state, "evaluation_attempts", 0) 
+            max_evaluation_attempts = get_state_attribute(state, "max_evaluation_attempts", 3)
+            
+            if evaluation_valid:
                 state.current_step = "review"
                 logger.info("All errors successfully implemented, proceeding to review")
-            elif needs_regeneration and state.evaluation_attempts < state.max_evaluation_attempts:
-                # If we have missing errors or extra errors and haven't reached max attempts, regenerate
+            elif needs_regeneration and evaluation_attempts < max_evaluation_attempts:
+                # If we have missing errors and haven't reached max attempts, regenerate
                 state.current_step = "regenerate"
-                if missing_count > 0:
-                    logger.info(f"Found {missing_count} missing errors, proceeding to regeneration")
+                logger.info(f"Found {missing_count} missing errors, proceeding to regeneration")
             else:
                 # Otherwise, we've either reached max attempts or have no more missing errors
                 state.current_step = "review"
-                if state.evaluation_attempts >= state.max_evaluation_attempts:
-                    logger.warning(f"Reached maximum evaluation attempts ({state.max_evaluation_attempts}). Proceeding to review.")
+                if evaluation_attempts >= max_evaluation_attempts:
+                    logger.warning(f"Reached maximum evaluation attempts ({max_evaluation_attempts}). Proceeding to review.")
                 else:
                     logger.info("No missing errors to fix, proceeding to review")
             
@@ -376,20 +307,6 @@ class WorkflowNodes:
             state.error = f"Error evaluating code: {str(e)}"
             return state
 
-    def review_code_node(self, state: WorkflowState) -> WorkflowState:
-        """
-        Review code node - this is a placeholder since user input happens in the UI.
-        
-        Args:
-            state: Current workflow state
-            
-        Returns:
-            Updated workflow state
-        """
-        # This node is primarily a placeholder since the actual review is submitted via the UI
-        state.current_step = "review"
-        return state
-    
     def analyze_review_node(self, state: WorkflowState) -> WorkflowState:
         """
         Analyze student review and provide feedback.
@@ -401,32 +318,32 @@ class WorkflowNodes:
             Updated workflow state with review analysis
         """
         try:
-            # Import get_field_value from language_utils
-            
             # Validate review history
-            if not state.review_history:
+            review_history = get_state_attribute(state, "review_history", [])
+            if not review_history:
                 state.error = t("no_review_submitted")
                 return state
                     
-            latest_review = state.review_history[-1]
+            latest_review = review_history[-1]
             student_review = latest_review.student_review
             
             # Validate code snippet
-            if not state.code_snippet:
+            code_snippet = get_state_attribute(state, "code_snippet", None)
+            if not code_snippet:
                 state.error = t("no_code_snippet_available")
                 return state
                     
-            code_snippet = state.code_snippet.code
+            code = code_snippet.code
             
             # Use evaluation result to extract problem information
-            # But modify to use the original error count for consistent metrics
             known_problems = []
-            original_error_count = state.original_error_count
+            original_error_count = get_state_attribute(state, "original_error_count", 0)
             
-            if state.evaluation_result and 'found_errors' in state.evaluation_result:
-                known_problems = state.evaluation_result.get('found_errors', [])
+            evaluation_result = get_state_attribute(state, "evaluation_result", {})
+            if evaluation_result and 'found_errors' in evaluation_result:
+                known_problems = get_field_value(evaluation_result, 'found_errors', [])
             
-            # Get the student response evaluator from the evaluator attribute
+            # Get the student response evaluator
             evaluator = getattr(self, "evaluator", None)
             if not evaluator:
                 state.error = t("student_evaluator_not_initialized")
@@ -434,13 +351,12 @@ class WorkflowNodes:
             
             # Use the standard evaluation method
             analysis = evaluator.evaluate_review(
-                code_snippet=code_snippet,
+                code_snippet=code,
                 known_problems=known_problems,
                 student_review=student_review
             )
             
-            # IMPORTANT: Update the analysis with the original error count
-            # This ensures consistent metrics in the UI
+            # Update the analysis with the original error count for consistent metrics
             if original_error_count > 0:
                 # Store the found problem count and original count
                 found_problems_count = len(known_problems)
@@ -448,17 +364,13 @@ class WorkflowNodes:
                 # Use language-aware field value retrieval
                 identified_count = get_field_value(analysis, "identified_count", 0)
                 
-                # IMPORTANT FIX: Override total_problems to use original_error_count
+                # Override total_problems to use original_error_count
                 analysis["total_problems"] = original_error_count
                 analysis["original_error_count"] = original_error_count
                 
                 # Recalculate percentages based on original count
                 analysis["identified_percentage"] = (identified_count / original_error_count) * 100
                 analysis["accuracy_percentage"] = (identified_count / original_error_count) * 100
-                
-                # Handle field language consistently
-                identified_problems = get_field_value(analysis, "identified_problems", [])
-                missed_problems = get_field_value(analysis, "missed_problems", [])
                 
                 logger.info(f"Updated review analysis: {identified_count}/{original_error_count} " +
                         f"({analysis['identified_percentage']:.1f}%) [Found problems: {found_problems_count}]")
@@ -471,19 +383,22 @@ class WorkflowNodes:
             # Update the review with analysis
             latest_review.analysis = analysis
             
-            # Check if the review is sufficient - with language awareness
+            # Check if the review is sufficient
             review_sufficient = get_field_value(analysis, "review_sufficient", False)
             state.review_sufficient = review_sufficient
             
             # Generate targeted guidance if needed
-            if not review_sufficient and state.current_iteration < state.max_iterations:
+            current_iteration = get_state_attribute(state, "current_iteration", 1)
+            max_iterations = get_state_attribute(state, "max_iterations", 3)
+            
+            if not review_sufficient and current_iteration < max_iterations:
                 targeted_guidance = evaluator.generate_targeted_guidance(
-                    code_snippet=code_snippet,
+                    code_snippet=code,
                     known_problems=known_problems,
                     student_review=student_review,
                     review_analysis=analysis,
-                    iteration_count=state.current_iteration,
-                    max_iterations=state.max_iterations
+                    iteration_count=current_iteration,
+                    max_iterations=max_iterations
                 )
                 latest_review.targeted_guidance = targeted_guidance
             
@@ -499,7 +414,89 @@ class WorkflowNodes:
             logger.error(f"Error analyzing review: {str(e)}", exc_info=True)
             state.error = f"Error analyzing review: {str(e)}"
             return state
-       
+
+    def regenerate_code_node(self, state: WorkflowState) -> WorkflowState:
+        """
+        Regenerate code based on evaluation feedback.
+        
+        Args:
+            state: Current workflow state
+            
+        Returns:
+            Updated workflow state with regenerated code
+        """
+        try:
+            evaluation_attempts = get_state_attribute(state, "evaluation_attempts", 0)
+            logger.info(f"Starting enhanced code regeneration (Attempt {evaluation_attempts})")
+            
+            # Use the code generation feedback to generate improved code
+            feedback_prompt = get_state_attribute(state, "code_generation_feedback", "")
+            
+            # Generate code with feedback prompt
+            if hasattr(self.code_generator, 'llm') and self.code_generator.llm:
+                # Log the regeneration prompt before sending to LLM
+                metadata = {
+                    "code_length": get_state_attribute(state, "code_length", "medium"),
+                    "difficulty_level": get_state_attribute(state, "difficulty_level", "medium"),
+                    "domain": get_state_attribute(state, "domain", "general"),
+                    "selected_errors": get_state_attribute(state, "selected_error_categories", {}),
+                    "attempt": evaluation_attempts,
+                    "max_attempts": get_state_attribute(state, "max_evaluation_attempts", 3)
+                }
+                
+                # Log the prompt before it's sent to the LLM
+                self.llm_logger.log_regeneration_prompt(feedback_prompt, metadata)
+                
+                # Generate the code
+                response = self.code_generator.llm.invoke(feedback_prompt)
+                
+                # Log the full regeneration with response
+                self.llm_logger.log_code_regeneration(feedback_prompt, response, metadata)
+                
+                # Process the response
+                annotated_code, clean_code = extract_both_code_versions(response)                
+                
+                # Get requested errors from state
+                requested_errors = self._extract_requested_errors(state)
+                
+                # Create updated code snippet
+                state.code_snippet = CodeSnippet(
+                    code=annotated_code,
+                    clean_code=clean_code,
+                    raw_errors={
+                        "java_errors": requested_errors
+                    }
+                )
+                
+                # Move to evaluation step again
+                state.current_step = "evaluate"
+                logger.info(f"Code regenerated successfully on attempt {evaluation_attempts}")
+                
+                return state
+            else:
+                # If no LLM available, fall back to standard generation
+                logger.warning("No LLM available for regeneration. Falling back to standard generation.")
+                return self.generate_code_node(state)
+            
+        except Exception as e:                 
+            logger.error(f"Error regenerating code: {str(e)}", exc_info=True)
+            state.error = f"Error regenerating code: {str(e)}"
+            return state
+    
+    def review_code_node(self, state: WorkflowState) -> WorkflowState:
+        """
+        Review code node - this is a placeholder since user input happens in the UI.
+        
+        Args:
+            state: Current workflow state
+            
+        Returns:
+            Updated workflow state
+        """
+        # This node is primarily a placeholder since the actual review is submitted via the UI
+        state.current_step = "review"
+        return state
+        
     def _extract_requested_errors(self, state: WorkflowState) -> List[Dict[str, Any]]:
         """
         Extract requested errors from the state with improved error handling and type safety.
@@ -513,13 +510,14 @@ class WorkflowNodes:
         requested_errors = []
         
         # First check if code_snippet exists
-        if not hasattr(state, 'code_snippet') or state.code_snippet is None:
+        code_snippet = get_state_attribute(state, 'code_snippet', None)
+        if not code_snippet:
             logger.warning("No code snippet in state for extracting requested errors")
             return requested_errors
         
         # Check if raw_errors exists and is a dictionary
-        if hasattr(state.code_snippet, "raw_errors"):
-            raw_errors = state.code_snippet.raw_errors
+        if hasattr(code_snippet, "raw_errors"):
+            raw_errors = code_snippet.raw_errors
             
             # Type check for raw_errors
             if not isinstance(raw_errors, dict):
@@ -527,45 +525,46 @@ class WorkflowNodes:
                 return requested_errors
             
             # Extract errors from java_errors key
-            if "java_errors" in raw_errors:
-                errors = raw_errors["java_errors"]
-                if not isinstance(errors, list):
-                    logger.warning(f"Expected list for java_errors, got {type(errors)}")
-                    return requested_errors
-                    
-                # Process each error
-                for error in errors:
-                    if not isinstance(error, dict):
-                        logger.warning(f"Expected dict for error, got {type(error)}")
-                        continue
-                    
-                    # Make sure the error has required fields
-                    if "type" not in error:
-                        error["type"] = "java_error"  # Use a default type if not specified
-                    
-                    if "name" not in error and "error_name" in error:
-                        error["name"] = error["error_name"]  # Use error_name as name if available
-                    
-                    if "name" not in error and "check_name" in error:
-                        error["name"] = error["check_name"]  # Use check_name as name if available
-                    
-                    # Only add the error if it has a name
-                    if "name" in error:
-                        requested_errors.append(error)
+            java_errors = get_field_value(raw_errors, "java_errors", [])
+            if not isinstance(java_errors, list):
+                logger.warning(f"Expected list for java_errors, got {type(java_errors)}")
+                return requested_errors
+                
+            # Process each error
+            for error in java_errors:
+                if not isinstance(error, dict):
+                    logger.warning(f"Expected dict for error, got {type(error)}")
+                    continue
+                
+                # Make sure the error has required fields
+                if "type" not in error:
+                    error["type"] = "java_error"  # Use a default type if not specified
+                
+                if "name" not in error and "error_name" in error:
+                    error["name"] = error["error_name"]  # Use error_name as name if available
+                
+                if "name" not in error and "check_name" in error:
+                    error["name"] = error["check_name"]  # Use check_name as name if available
+                
+                # Only add the error if it has a name
+                if "name" in error:
+                    requested_errors.append(error)
         
         # Alternative method: Check selected_specific_errors
-        elif hasattr(state, 'selected_specific_errors') and state.selected_specific_errors:
+        selected_specific_errors = get_state_attribute(state, 'selected_specific_errors', [])
+        if not requested_errors and selected_specific_errors:
             # Check if it's a list
-            if isinstance(state.selected_specific_errors, list):
+            if isinstance(selected_specific_errors, list):
                 # Filter out non-dict entries
-                for error in state.selected_specific_errors:
+                for error in selected_specific_errors:
                     if isinstance(error, dict) and "name" in error and "type" in error:
                         requested_errors.append(error)
         
         # If we still don't have any errors, check selected_error_categories
-        if not requested_errors and hasattr(state, 'selected_error_categories'):
+        selected_error_categories = get_state_attribute(state, 'selected_error_categories', {})
+        if not requested_errors and selected_error_categories:
             # Check if it's a dict
-            if isinstance(state.selected_error_categories, dict):
+            if isinstance(selected_error_categories, dict):
                 # This doesn't give us specific errors, but we can log that we found categories
                 logger.info("Found selected_error_categories but no specific errors")
         
@@ -582,11 +581,11 @@ class WorkflowNodes:
         if selected_errors:
             logger.debug("\n--- DETAILED ERROR LISTING ---")
             for i, error in enumerate(selected_errors, 1):
-                logger.debug(f"  {i}. Type: {error.get('type', 'Unknown')}")
-                logger.debug(f"     Name: {error.get('name', 'Unknown')}")
-                logger.debug(f"     Category: {error.get('category', 'Unknown')}")
-                logger.debug(f"     Description: {error.get('description', 'Unknown')}")
-                if 'implementation_guide' in error:
-                    guide = error.get('implementation_guide', '')
-                    logger.debug(f"     Implementation Guide: {guide[:100]}..." 
-                        if len(guide) > 100 else guide)
+                logger.debug(f"  {i}. Type: {get_field_value(error, 'type', 'Unknown')}")
+                logger.debug(f"     Name: {get_field_value(error, 'name', 'Unknown')}")
+                logger.debug(f"     Category: {get_field_value(error, 'category', 'Unknown')}")
+                logger.debug(f"     Description: {get_field_value(error, 'description', 'Unknown')}")
+                implementation_guide = get_field_value(error, 'implementation_guide', '')
+                if implementation_guide:
+                    guide_display = implementation_guide[:100] + "..." if len(implementation_guide) > 100 else implementation_guide
+                    logger.debug(f"     Implementation Guide: {guide_display}")

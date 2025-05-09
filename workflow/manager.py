@@ -25,6 +25,7 @@ from workflow.builder import GraphBuilder
 
 from utils.llm_logger import LLMInteractionLogger
 from utils.code_utils import generate_comparison_report
+from utils.language_utils import get_field_value, get_state_attribute, t  # Add these imports
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -179,12 +180,14 @@ class WorkflowManager:
         Returns:
             Updated workflow state with analysis
         """
-        logger.info(f"Submitting review for iteration {state.current_iteration}")
+        # Use get_state_attribute for language-aware state access
+        current_iteration = get_state_attribute(state, "current_iteration", 1)
+        logger.info(f"Submitting review for iteration {current_iteration}")
         
         # Create a new review attempt
         review_attempt = ReviewAttempt(
             student_review=student_review,
-            iteration_number=state.current_iteration,
+            iteration_number=current_iteration,
             analysis={},
             targeted_guidance=None
         )
@@ -196,8 +199,12 @@ class WorkflowManager:
         updated_state = self.workflow_nodes.analyze_review_node(state)
         
         # Check if this is the last iteration or review is sufficient
-        if (updated_state.current_iteration > updated_state.max_iterations or 
-            updated_state.review_sufficient):
+        # Use get_state_attribute for language-aware state access
+        updated_current_iteration = get_state_attribute(updated_state, "current_iteration", 1)
+        max_iterations = get_state_attribute(updated_state, "max_iterations", 3)
+        review_sufficient = get_state_attribute(updated_state, "review_sufficient", False)
+        
+        if (updated_current_iteration > max_iterations or review_sufficient):
             # Generate comparison report for feedback tab
             self._generate_review_feedback(updated_state)
         
@@ -210,44 +217,50 @@ class WorkflowManager:
         Args:
             state: Current workflow state
         """
+        # Use get_state_attribute for language-aware state access
+        review_history = get_state_attribute(state, "review_history", [])
+        
         # Check if we have review history
-        if not state.review_history:
+        if not review_history:
             logger.warning("No review history found for generating feedback")
             return
             
         # Get latest review
-        latest_review = state.review_history[-1]
+        latest_review = review_history[-1]
+        
+        # Use get_state_attribute for language-aware state access
+        comparison_report = get_state_attribute(state, "comparison_report", None)
+        evaluation_result = get_state_attribute(state, "evaluation_result", None)
+        original_error_count = get_state_attribute(state, "original_error_count", 0)
         
         # Generate comparison report if not already generated
-        if not state.comparison_report and state.evaluation_result:
+        if not comparison_report and evaluation_result:
             try:
                 logger.info("Generating comparison report for feedback")
                 
-                # Extract error information from evaluation results
-                found_errors = state.evaluation_result.get('found_errors', [])
-                
-                # Get original error count for consistent metrics
-                original_error_count = state.original_error_count
+                # Extract error information from evaluation results - use get_field_value for language awareness
+                found_errors = get_field_value(evaluation_result, 'found_errors', [])
                 
                 # Update the analysis with the original error count if needed
                 if original_error_count > 0 and "original_error_count" not in latest_review.analysis:
                     latest_review.analysis["original_error_count"] = original_error_count
                     
                     # Recalculate percentages based on original count
-                    identified_count = latest_review.analysis.get("identified_count", 0) 
+                    # Use get_field_value for language awareness
+                    identified_count = get_field_value(latest_review.analysis, "identified_count", 0) 
                     latest_review.analysis["identified_percentage"] = (identified_count / original_error_count) * 100
                     latest_review.analysis["accuracy_percentage"] = (identified_count / original_error_count) * 100
-                    if auth_ui:
-                        auth_ui.update_review_stats(accuracy, identified_count)
+                
                 # Convert review history to format expected by generate_comparison_report
                 converted_history = []
-                for review in state.review_history:
+                for review in review_history:
                     converted_history.append({
                         "iteration_number": review.iteration_number,
                         "student_review": review.student_review,
                         "review_analysis": review.analysis,
                         "targeted_guidance": review.targeted_guidance
                     })
+                
                 # Generate the comparison report with the updated analysis
                 state.comparison_report = generate_comparison_report(
                     found_errors,
@@ -265,29 +278,34 @@ class WorkflowManager:
                     "Please check your review history for details."
                 )
         
+        # Use get_state_attribute for language-aware state access
+        review_summary = get_state_attribute(state, "review_summary", None)
+        code_snippet = get_state_attribute(state, "code_snippet", None)
+        
         # Generate review summary with LLM if available
-        if not state.review_summary and self.summary_model and state.code_snippet:
+        if not review_summary and self.summary_model and code_snippet:
             try:
                 logger.info("Generating review summary with LLM")
                 # Prepare the feedback manager with the current state
-                self.feedback_manager.code_snippet = state.code_snippet.code
-                if state.evaluation_result:
-                    self.feedback_manager.known_problems = state.evaluation_result.get('found_errors', [])
+                self.feedback_manager.code_snippet = code_snippet.code
+                if evaluation_result:
+                    # Use get_field_value for language awareness
+                    self.feedback_manager.known_problems = get_field_value(evaluation_result, 'found_errors', [])
                 self.feedback_manager.review_history = []
                 
                 # Get the original error count
-                original_error_count = state.original_error_count
                 if original_error_count > 0:
                     self.feedback_manager.original_error_count = original_error_count
                 
                 # Add review history to feedback manager
-                for review in state.review_history:
+                for review in review_history:
                     # Update the analysis with the original error count if needed
                     if original_error_count > 0 and "original_error_count" not in review.analysis:
                         review.analysis["original_error_count"] = original_error_count
                         
                         # Recalculate percentages based on original count
-                        identified_count = review.analysis.get("identified_count", 0)
+                        # Use get_field_value for language awareness
+                        identified_count = get_field_value(review.analysis, "identified_count", 0)
                         review.analysis["identified_percentage"] = (identified_count / original_error_count) * 100
                         review.analysis["accuracy_percentage"] = (identified_count / original_error_count) * 100
                     
@@ -311,21 +329,23 @@ class WorkflowManager:
                 
                 # Generate a fallback summary if LLM fails
                 if latest_review and latest_review.analysis:
+                    # Use get_field_value for language awareness
                     analysis = latest_review.analysis
                     
                     # Use the original error count if available
-                    original_error_count = state.original_error_count
                     if original_error_count <= 0:
-                        original_error_count = analysis.get("total_problems", 0)
+                        # Use get_field_value for language awareness
+                        original_error_count = get_field_value(analysis, "total_problems", 0)
                     
-                    identified_count = analysis.get("identified_count", 0)
+                    # Use get_field_value for language awareness
+                    identified_count = get_field_value(analysis, "identified_count", 0)
                     identified_percentage = (identified_count / original_error_count * 100) if original_error_count > 0 else 0
                     
                     state.review_summary = (
-                        f"# Review Summary\n\n"
-                        f"You found {identified_count} out of {original_error_count} issues "
-                        f"({identified_percentage:.1f}% accuracy).\n\n"
-                        f"Check the detailed analysis in the comparison report for more information."
+                        f"# {t('review_summary')}\n\n"
+                        f"{t('you_found')} {identified_count} {t('of')} {original_error_count} {t('issues')} "
+                        f"({identified_percentage:.1f}% {t('accuracy')}).\n\n"
+                        f"{t('check_detailed_analysis')}"
                     )
         
         logger.info("Feedback generation complete")

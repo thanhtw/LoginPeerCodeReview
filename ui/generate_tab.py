@@ -9,7 +9,7 @@ import streamlit as st
 import logging
 from typing import Dict, List, Any, Optional, Callable
 from data.json_error_repository import JsonErrorRepository
-from utils.language_utils import t
+from utils.language_utils import t, get_field_value, get_state_attribute  # Add get_state_attribute import
 
 # Configure logging
 logging.basicConfig(
@@ -69,8 +69,8 @@ def generate_code_problem(workflow,
             # Important: Update the session state immediately after code generation
             st.session_state.workflow_state = updated_state
             
-            if updated_state.error:
-                st.error(f"Error: {updated_state.error}")
+            if get_state_attribute(updated_state, "error", None):
+                st.error(f"Error: {get_state_attribute(updated_state, 'error', '')}")
                 return False
         
         # Second stage: Display the evaluation process
@@ -101,9 +101,10 @@ def generate_code_problem(workflow,
                 st.write(f"**{t('step2')}** {t('completed')}")
                 
                 # Show evaluation results
-                if hasattr(updated_state, 'evaluation_result') and updated_state.evaluation_result:
-                    found = len(updated_state.evaluation_result.get("found_errors", []))
-                    missing = len(updated_state.evaluation_result.get("missing_errors", []))
+                evaluation_result = get_state_attribute(updated_state, 'evaluation_result', {})
+                if evaluation_result:
+                    found = len(get_field_value(evaluation_result, "found_errors", []))
+                    missing = len(get_field_value(evaluation_result, "missing_errors", []))
                     total = found + missing
                     if total == 0:
                         total = 1  # Avoid division by zero
@@ -116,7 +117,7 @@ def generate_code_problem(workflow,
                         st.write(f"**{t('step3')}** {t('improving_code')}")
                         
                         attempt = 1
-                        max_attempts = getattr(updated_state, 'max_evaluation_attempts', 3)
+                        max_attempts = get_state_attribute(updated_state, 'max_evaluation_attempts', 3)
                         previous_found = found
                         
                         # Loop through regeneration attempts
@@ -142,9 +143,10 @@ def generate_code_problem(workflow,
                                 st.session_state.workflow_steps.append(t("reevaluating_code"))
                             
                             # Show updated results
-                            if hasattr(updated_state, 'evaluation_result'):
-                                new_found = len(updated_state.evaluation_result.get("found_errors", []))
-                                new_missing = len(updated_state.evaluation_result.get("missing_errors", []))
+                            new_evaluation_result = get_state_attribute(updated_state, 'evaluation_result', {})
+                            if new_evaluation_result:
+                                new_found = len(get_field_value(new_evaluation_result, "found_errors", []))
+                                new_missing = len(get_field_value(new_evaluation_result, "missing_errors", []))
                                 
                                 st.write(f"**{t('quality')} {attempt+1}:** {new_found/total*100:.1f}%: {new_found}/{total} {t('errors_found')}")
                                 
@@ -174,9 +176,10 @@ def generate_code_problem(workflow,
             # Show statistics in the sidebar
             st.subheader(t("generation_stats"))
             
-            if hasattr(updated_state, 'evaluation_result') and updated_state.evaluation_result:
-                found = len(updated_state.evaluation_result.get("found_errors", []))
-                missing = len(updated_state.evaluation_result.get("missing_errors", []))
+            evaluation_result = get_state_attribute(updated_state, 'evaluation_result', {})
+            if evaluation_result:
+                found = len(get_field_value(evaluation_result, "found_errors", []))
+                missing = len(get_field_value(evaluation_result, "missing_errors", []))
                 total = found + missing
                 if total > 0:
                     quality_percentage = (found / total * 100)
@@ -184,8 +187,9 @@ def generate_code_problem(workflow,
                 
                 st.metric(t("errors_found"), f"{found}/{total}")
                 
-                if hasattr(updated_state, 'evaluation_attempts'):
-                    st.metric(t("generation_attempts"), updated_state.evaluation_attempts)
+                evaluation_attempts = get_state_attribute(updated_state, 'evaluation_attempts', 0)
+                if evaluation_attempts:
+                    st.metric(t("generation_attempts"), evaluation_attempts)
         
         # Update session state with completed process
         updated_state.current_step = "review"
@@ -195,15 +199,16 @@ def generate_code_problem(workflow,
         st.session_state.workflow_steps.append(t("code_generation_completed"))
         
         # Display the generated code
-        if hasattr(updated_state, 'code_snippet') and updated_state.code_snippet:
+        code_snippet = get_state_attribute(updated_state, 'code_snippet', None)
+        if code_snippet:
             # Show the generated code in this tab for immediate feedback
             st.subheader(t("generated_java_code"))
             
             code_to_display = None
-            if hasattr(updated_state.code_snippet, 'clean_code') and updated_state.code_snippet.clean_code:
-                code_to_display = updated_state.code_snippet.clean_code
-            elif hasattr(updated_state.code_snippet, 'code') and updated_state.code_snippet.code:
-                code_to_display = updated_state.code_snippet.code
+            if hasattr(code_snippet, 'clean_code') and code_snippet.clean_code:
+                code_to_display = code_snippet.clean_code
+            elif hasattr(code_snippet, 'code') and code_snippet.code:
+                code_to_display = code_snippet.code
                 
             if code_to_display:
                 st.code(code_to_display, language="java")
@@ -240,61 +245,63 @@ def render_generate_tab(workflow, error_selector_ui, code_display_ui, user_level
         st.session_state.workflow_steps = []
     
     # If we already have a code snippet, show the workflow process
-    if hasattr(st.session_state, 'workflow_state') and hasattr(st.session_state.workflow_state, 'code_snippet') and st.session_state.workflow_state.code_snippet:
-        # First display the workflow progress
-        show_workflow_process()
-        
-        # Then display the generated code
-        st.subheader(t("generated_java_code"))
-        
-        # Get known problems from multiple sources to ensure we have data for instructor view
-        known_problems = []
-        
-        # First, try to get problems from evaluation_result['found_errors']
-        if (hasattr(st.session_state.workflow_state, 'evaluation_result') and 
-            st.session_state.workflow_state.evaluation_result and 
-            'found_errors' in st.session_state.workflow_state.evaluation_result):
-            found_errors = st.session_state.workflow_state.evaluation_result.get('found_errors', [])
-            if found_errors:
-                known_problems = found_errors
-        
-        # If we couldn't get known problems from evaluation, try to get from selected errors
-        if not known_problems and hasattr(st.session_state.workflow_state, 'selected_specific_errors'):
-            selected_errors = st.session_state.workflow_state.selected_specific_errors
-            if selected_errors:
-                # Format selected errors to match expected format
-                known_problems = [
-                    f"{error.get('type', '').upper()} - {error.get('name', '')}" 
-                    for error in selected_errors
-                ]
-        
-        # As a last resort, try to extract from raw_errors in code_snippet
-        if not known_problems and hasattr(st.session_state.workflow_state.code_snippet, 'raw_errors'):
-            raw_errors = st.session_state.workflow_state.code_snippet.raw_errors
-            if isinstance(raw_errors, dict):
-                for error_type, errors in raw_errors.items():
-                    for error in errors:
-                        if isinstance(error, dict):
-                            error_type_str = error.get('type', error_type).upper()
-                            error_name = error.get('name', error.get('error_name', error.get('check_name', 'Unknown')))
-                            known_problems.append(f"{error_type_str} - {error_name}")
-        
-        # Always pass known_problems, the render_code_display function will handle showing
-        # the instructor view based on session state and checkbox status
-        code_display_ui.render_code_display(
-            st.session_state.workflow_state.code_snippet,
-            known_problems=known_problems
-        )
-        
-        # Add button to regenerate code
-        if st.button(t("generate_new"), type="primary"):
-            # Reset the state for new generation
-            st.session_state.workflow_state.code_snippet = None
-            st.session_state.workflow_state.current_step = "generate"
-            st.session_state.workflow_state.evaluation_attempts = 0
-            st.session_state.workflow_steps = []
-            # Rerun to update UI
-            st.rerun()
+    if hasattr(st.session_state, 'workflow_state'):
+        code_snippet = get_state_attribute(st.session_state.workflow_state, 'code_snippet', None)
+        if code_snippet:
+            # First display the workflow progress
+            show_workflow_process()
+            
+            # Then display the generated code
+            st.subheader(t("generated_java_code"))
+            
+            # Get known problems for instructor view
+            known_problems = []
+            
+            # Extract known problems from evaluation result
+            evaluation_result = get_state_attribute(st.session_state.workflow_state, 'evaluation_result', None)
+            if evaluation_result and 'found_errors' in evaluation_result:
+                found_errors = get_field_value(evaluation_result, 'found_errors', [])
+                if found_errors:
+                    known_problems = found_errors
+            
+            # If we couldn't get known problems from evaluation, try to get from selected errors
+            if not known_problems:
+                selected_errors = get_state_attribute(st.session_state.workflow_state, 'selected_specific_errors', [])
+                if selected_errors:
+                    # Format selected errors to match expected format
+                    known_problems = [
+                        f"{error.get('type', '').upper()} - {error.get('name', '')}" 
+                        for error in selected_errors
+                    ]
+            
+            # As a last resort, try to extract from raw_errors in code_snippet
+            if not known_problems and hasattr(code_snippet, 'raw_errors'):
+                raw_errors = code_snippet.raw_errors
+                if isinstance(raw_errors, dict):
+                    for error_type, errors in raw_errors.items():
+                        for error in errors:
+                            if isinstance(error, dict):
+                                error_type_str = error.get('type', error_type).upper()
+                                error_name = error.get('name', error.get('error_name', error.get('check_name', 'Unknown')))
+                                known_problems.append(f"{error_type_str} - {error_name}")
+            
+            # Always pass known_problems, the render_code_display function will handle showing
+            # the instructor view based on session state and checkbox status
+            code_display_ui.render_code_display(
+                code_snippet,
+                known_problems=known_problems
+            )
+            
+            # Add button to regenerate code
+            if st.button(t("generate_new"), type="primary"):
+                # Reset the state for new generation
+                workflow_state = st.session_state.workflow_state
+                workflow_state.code_snippet = None
+                workflow_state.current_step = "generate"
+                workflow_state.evaluation_attempts = 0
+                st.session_state.workflow_steps = []
+                # Rerun to update UI
+                st.rerun()
     else:
         # Add custom CSS for the error category cards
         st.markdown("""
@@ -410,8 +417,8 @@ def render_generate_tab(workflow, error_selector_ui, code_display_ui, user_level
                         state = workflow.generate_code_node(st.session_state.workflow_state)
                         st.session_state.workflow_steps.append(t("generated_initial_code"))
                         
-                        if state.error:
-                            st.error(f"Error: {state.error}")
+                        if get_state_attribute(state, "error", None):
+                            st.error(f"Error: {get_state_attribute(state, 'error', '')}")
                             return
                         
                         # Step 2: Evaluate code
@@ -421,13 +428,13 @@ def render_generate_tab(workflow, error_selector_ui, code_display_ui, user_level
                         state = workflow.evaluate_code_node(state)
                         st.session_state.workflow_steps.append(t("evaluated_code"))
                         
-                        if state.error:
-                            st.error(f"Error: {state.error}")
+                        if get_state_attribute(state, "error", None):
+                            st.error(f"Error: {get_state_attribute(state, 'error', '')}")
                             return
                         
                         # Step 3: Regenerate if needed
                         evaluation_attempts = 1
-                        max_attempts = state.max_evaluation_attempts
+                        max_attempts = get_state_attribute(state, "max_evaluation_attempts", 3)
                         
                         # Loop for regeneration attempts
                         while evaluation_attempts < max_attempts and workflow.should_regenerate_or_review(state) == "regenerate_code":
@@ -439,8 +446,8 @@ def render_generate_tab(workflow, error_selector_ui, code_display_ui, user_level
                             state.current_step = "regenerate"
                             state = workflow.regenerate_code_node(state)
                             
-                            if state.error:
-                                st.error(f"Error: {state.error}")
+                            if get_state_attribute(state, "error", None):
+                                st.error(f"Error: {get_state_attribute(state, 'error', '')}")
                                 return
                                 
                             # Re-evaluate code
@@ -448,8 +455,8 @@ def render_generate_tab(workflow, error_selector_ui, code_display_ui, user_level
                             status_placeholder.info(t("reevaluating_code"))
                             state = workflow.evaluate_code_node(state)
                             
-                            if state.error:
-                                st.error(f"Error: {state.error}")
+                            if get_state_attribute(state, "error", None):
+                                st.error(f"Error: {get_state_attribute(state, 'error', '')}")
                                 return
                                 
                             # Increment attempt counter
@@ -486,9 +493,9 @@ def show_workflow_process():
     state = st.session_state.workflow_state
     
     # Get the current step and evaluation attempts
-    current_step = getattr(state, 'current_step', 'generate')
-    evaluation_attempts = getattr(state, 'evaluation_attempts', 0)
-    max_evaluation_attempts = getattr(state, 'max_evaluation_attempts', 3)
+    current_step = get_state_attribute(state, 'current_step', 'generate')
+    evaluation_attempts = get_state_attribute(state, 'evaluation_attempts', 0)
+    max_evaluation_attempts = get_state_attribute(state, 'max_evaluation_attempts', 3)
     
     # Create a workflow visualization with improved style
     st.markdown("""
@@ -584,11 +591,11 @@ def show_workflow_process():
             st.write(t("no_process_details"))
 
     # If we have evaluation results, show a summary card
-    if (hasattr(state, 'evaluation_result') and state.evaluation_result and 
-        'found_errors' in state.evaluation_result):
+    evaluation_result = get_state_attribute(state, 'evaluation_result', None)
+    if evaluation_result and 'found_errors' in evaluation_result:
         
-        found = len(state.evaluation_result.get("found_errors", []))
-        missing = len(state.evaluation_result.get("missing_errors", []))
+        found = len(get_field_value(evaluation_result, "found_errors", []))
+        missing = len(get_field_value(evaluation_result, "missing_errors", []))
         total = found + missing
         if total > 0:
             quality_percentage = (found / total * 100)

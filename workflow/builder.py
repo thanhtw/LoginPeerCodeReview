@@ -11,6 +11,7 @@ from langgraph.graph import StateGraph, END
 from state_schema import WorkflowState
 from workflow.node import WorkflowNodes
 from workflow.conditions import WorkflowConditions
+from utils.language_utils import t, get_field_value, get_state_attribute  # Add the imports
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -179,5 +180,3 @@ class GraphBuilder:
             except Exception as mermaid_error:
                 logger.error(f"Error creating Mermaid visualization: {str(mermaid_error)}")
                 return None
-
-    

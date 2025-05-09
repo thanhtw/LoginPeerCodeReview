@@ -18,7 +18,7 @@ from typing import Dict, List, Any, Optional, Callable
 from utils.llm_logger import LLMInteractionLogger
 from llm_manager import LLMManager
 from state_schema import WorkflowState
-from utils.language_utils import t, get_current_language
+from utils.language_utils import t, get_current_language, get_field_value, get_state_attribute  # Add get_field_value and get_state_attribute
 
 # Configure logging
 logging.getLogger('streamlit').setLevel(logging.ERROR)
@@ -105,22 +105,22 @@ def render_llm_logs_tab():
         logs = llm_logger.get_recent_logs(log_count * 3)  # Get more logs to allow for filtering
         
         if logs:
-            # Add filter for log types
-            log_types = sorted(list(set(log.get("type", "unknown") for log in logs)))
+            # Add filter for log types - use get_field_value for log type access
+            log_types = sorted(list(set(get_field_value(log, "type", "unknown") for log in logs)))
             log_type_filter = st.multiselect(t("filter_by_type") or "Filter by log type:", log_types, default=log_types)
             
-            # Date filter
-            timestamps = [log.get("timestamp", "") for log in logs if "timestamp" in log]
+            # Date filter - use get_field_value for timestamp access
+            timestamps = [get_field_value(log, "timestamp", "") for log in logs if "timestamp" in log or "時間戳記" in log]
             if timestamps:
                 # Extract dates from timestamps
                 dates = sorted(set(ts.split("T")[0] for ts in timestamps if "T" in ts))
                 if dates:
                     selected_dates = st.multiselect(t("filter_by_date") or "Filter by date:", dates, default=dates)
-                    # Apply date filter
-                    logs = [log for log in logs if "timestamp" in log and log["timestamp"].split("T")[0] in selected_dates]
+                    # Apply date filter - use get_field_value for timestamp access
+                    logs = [log for log in logs if get_field_value(log, "timestamp", "").split("T")[0] in selected_dates]
             
-            # Filter logs by type
-            filtered_logs = [log for log in logs if log.get("type", "unknown") in log_type_filter]
+            # Filter logs by type - use get_field_value for type access
+            filtered_logs = [log for log in logs if get_field_value(log, "type", "unknown") in log_type_filter]
             
             # Filter logs by language if option is selected
             if language_filter:
@@ -139,7 +139,8 @@ def render_llm_logs_tab():
                 
                 language_filtered_logs = []
                 for log in filtered_logs:
-                    prompt = log.get("prompt", "")
+                    # Use get_field_value for prompt access
+                    prompt = get_field_value(log, "prompt", "")
                     # Check if the prompt contains language-specific instructions
                     if is_language_match(prompt, current_language):
                         language_filtered_logs.append(log)
@@ -156,8 +157,8 @@ def render_llm_logs_tab():
                 
                 # Display logs with improved UI
                 for idx, log in enumerate(display_logs):
-                    # Format timestamp for display
-                    timestamp = log.get("timestamp", t("unknown_time") or "Unknown time")
+                    # Format timestamp for display - use get_field_value for timestamp access
+                    timestamp = get_field_value(log, "timestamp", t("unknown_time") or "Unknown time")
                     if "T" in timestamp:
                         date, time = timestamp.split("T")
                         time = time.split(".")[0] if "." in time else time  # Remove milliseconds
@@ -165,8 +166,8 @@ def render_llm_logs_tab():
                     else:
                         display_time = timestamp
                     
-                    # Create expander title with log type and timestamp
-                    log_type = log.get("type", t("unknown_type") or "Unknown type").replace("_", " ").title()
+                    # Create expander title with log type and timestamp - use get_field_value for type access
+                    log_type = get_field_value(log, "type", t("unknown_type") or "Unknown type").replace("_", " ").title()
                     expander_title = f"{log_type} - {display_time}"
                     
                     with st.expander(expander_title):
@@ -177,19 +178,19 @@ def render_llm_logs_tab():
                             t("metadata_tab") or "Metadata"
                         ])
                         
-                        # Prompt tab
+                        # Prompt tab - use get_field_value for prompt access
                         with log_tabs[0]:
                             st.text_area(
                                 t("prompt_sent") or "Prompt sent to LLM:", 
-                                value=log.get("prompt", ""), 
+                                value=get_field_value(log, "prompt", ""), 
                                 height=250,
-                                key=f"prompt_{idx}_{log.get('timestamp', '')}",
+                                key=f"prompt_{idx}_{get_field_value(log, 'timestamp', '')}",
                                 disabled=True
                             )
                         
-                        # Response tab
+                        # Response tab - use get_field_value for response access
                         with log_tabs[1]:
-                            response = log.get("response", "")
+                            response = get_field_value(log, "response", "")
                             if response:
                                 # Check if response contains code blocks and highlight them
                                 if "```" in response:
@@ -217,15 +218,15 @@ def render_llm_logs_tab():
                                         t("response_label") or "Response:", 
                                         value=response, 
                                         height=300,
-                                        key=f"response_{idx}_{log.get('timestamp', '')}",
+                                        key=f"response_{idx}_{get_field_value(log, 'timestamp', '')}",
                                         disabled=True
                                     )
                             else:
                                 st.info(t("no_response") or "No response available")
                         
-                        # Metadata tab
+                        # Metadata tab - use get_field_value for metadata access
                         with log_tabs[2]:
-                            metadata = log.get("metadata", {})
+                            metadata = get_field_value(log, "metadata", {})
                             if metadata:
                                 st.json(metadata)
                             else:
@@ -347,10 +348,14 @@ def create_enhanced_tabs(labels: List[str]):
         
         # ENHANCED: Check if max iterations reached or review is sufficient or all errors identified
         if hasattr(state, 'current_iteration') and hasattr(state, 'max_iterations'):
-            if state.current_iteration > state.max_iterations:
+            # Use get_state_attribute for language-aware state access
+            current_iteration = get_state_attribute(state, 'current_iteration', 1)
+            max_iterations = get_state_attribute(state, 'max_iterations', 3)
+            
+            if current_iteration > max_iterations:
                 review_completed = True
                 logger.info("Review completed: max iterations reached")
-            elif hasattr(state, 'review_sufficient') and state.review_sufficient:
+            elif get_state_attribute(state, 'review_sufficient', False):
                 review_completed = True
                 logger.info("Review completed: sufficient review")
             
@@ -359,8 +364,9 @@ def create_enhanced_tabs(labels: List[str]):
                 latest_review = state.review_history[-1]
                 if hasattr(latest_review, 'analysis'):
                     analysis = latest_review.analysis
-                    identified_count = analysis.get("identified_count", 0)
-                    total_problems = analysis.get("total_problems", 0)
+                    # Use get_field_value for dictionary access
+                    identified_count = get_field_value(analysis, "identified_count", 0)
+                    total_problems = get_field_value(analysis, "total_problems", 0)
                     if identified_count == total_problems and total_problems > 0:
                         review_completed = True
                         # Ensure state is updated for consistency
@@ -380,4 +386,3 @@ def create_enhanced_tabs(labels: List[str]):
         st.session_state.active_tab = current_tab
     
     return tabs
-

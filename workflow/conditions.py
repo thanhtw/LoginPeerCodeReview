@@ -8,6 +8,7 @@ which paths to take in the LangGraph workflow.
 import logging
 from typing import Dict, Any, List, Optional
 from state_schema import WorkflowState
+from utils.language_utils import t, get_field_value, get_state_attribute  # Added imports
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -33,40 +34,41 @@ class WorkflowConditions:
             "regenerate_code" if we need to regenerate code based on evaluation feedback
             "review_code" if the code is valid or we've reached max attempts
         """
-        logger.debug(f"Deciding workflow path with state: step={state.current_step}, "
-                f"valid={state.evaluation_result and state.evaluation_result.get('valid', False)}, "
-                f"attempts={getattr(state, 'evaluation_attempts', 0)}/{getattr(state, 'max_evaluation_attempts', 3)}")
+        # Use get_state_attribute for language-aware state attribute access
+        current_step = get_state_attribute(state, "current_step", "")
+        evaluation_attempts = get_state_attribute(state, "evaluation_attempts", 0)
+        max_evaluation_attempts = get_state_attribute(state, "max_evaluation_attempts", 3)
+        evaluation_result = get_state_attribute(state, "evaluation_result", {})
+        
+        logger.debug(f"Deciding workflow path with state: step={current_step}, "
+                f"valid={evaluation_result and get_field_value(evaluation_result, 'valid', False)}, "
+                f"attempts={evaluation_attempts}/{max_evaluation_attempts}")
         
         # Check if current step is explicitly set to regenerate
-        if state.current_step == "regenerate":
+        if current_step == "regenerate":
             logger.info("Path decision: regenerate_code (explicit current_step)")
             return "regenerate_code"
         
-        
-         # IMPORTANT: Explicitly check validity flag first
-        if state.evaluation_result and state.evaluation_result.get("valid", False) == True:
+        # IMPORTANT: Explicitly check validity flag first
+        if evaluation_result and get_field_value(evaluation_result, "valid", False) == True:
             logger.info("Path decision: review_code (evaluation passed)")
             return "review_code"
 
         # Check if we have missing or extra errors and haven't reached max attempts
-        has_missing_errors = state.evaluation_result and len(state.evaluation_result.get("missing_errors", [])) > 0
-        has_extra_errors = state.evaluation_result and len(state.evaluation_result.get("extra_errors", [])) > 0
+        # Use get_field_value for language-aware dictionary field access
+        has_missing_errors = evaluation_result and len(get_field_value(evaluation_result, "missing_errors", [])) > 0
+        has_extra_errors = evaluation_result and len(get_field_value(evaluation_result, "extra_errors", [])) > 0
         needs_regeneration = has_missing_errors or has_extra_errors
         
-        # Get current and max attempt counts with safe defaults
-        current_attempts = getattr(state, 'evaluation_attempts', 0)
-        max_attempts = getattr(state, 'max_evaluation_attempts', 3)
-        
         # If we need regeneration and haven't reached max attempts, regenerate
-        if needs_regeneration and current_attempts < max_attempts:
+        if needs_regeneration and evaluation_attempts < max_evaluation_attempts:
             reason = "missing errors" if has_missing_errors else "extra errors"
             logger.info(f"Path decision: regenerate_code (found {reason})")
             return "regenerate_code"
         
         # If we've reached max attempts or don't need regeneration, move to review
-        logger.info(f"Path decision: review_code (attempts: {current_attempts}/{max_attempts})")
+        logger.info(f"Path decision: review_code (attempts: {evaluation_attempts}/{max_evaluation_attempts})")
         return "review_code"
-    
     
     @staticmethod
     def should_continue_review(state: WorkflowState) -> str:
@@ -82,24 +84,32 @@ class WorkflowConditions:
             "continue_review" if more review iterations are needed
             "generate_summary" if the review is sufficient or max iterations reached or all issues identified
         """
-        logger.debug(f"Deciding review path with state: iteration={state.current_iteration}/{state.max_iterations}, "
-                f"sufficient={state.review_sufficient}")
+        # Use get_state_attribute for language-aware state attribute access
+        current_iteration = get_state_attribute(state, "current_iteration", 1)
+        max_iterations = get_state_attribute(state, "max_iterations", 3)
+        review_sufficient = get_state_attribute(state, "review_sufficient", False)
+        review_history = get_state_attribute(state, "review_history", [])
+        
+        logger.debug(f"Deciding review path with state: iteration={current_iteration}/{max_iterations}, "
+                f"sufficient={review_sufficient}")
         
         # Check if we've reached max iterations
-        if state.current_iteration > state.max_iterations:
-            logger.info(f"Review path decision: generate_summary (max iterations reached: {state.current_iteration})")
+        if current_iteration > max_iterations:
+            logger.info(f"Review path decision: generate_summary (max iterations reached: {current_iteration})")
             return "generate_summary"
         
         # Check if the review is sufficient
-        if state.review_sufficient:
+        if review_sufficient:
             logger.info("Review path decision: generate_summary (review sufficient)")
             return "generate_summary"
         
         # Check if all issues have been identified
-        latest_review = state.review_history[-1] if state.review_history else None
-        if latest_review and latest_review.analysis:
-            identified_count = latest_review.analysis.get("identified_count", 0)
-            total_problems = latest_review.analysis.get("total_problems", 0)
+        latest_review = review_history[-1] if review_history else None
+        if latest_review and hasattr(latest_review, "analysis") and latest_review.analysis:
+            # Use get_field_value for language-aware dictionary field access
+            identified_count = get_field_value(latest_review.analysis, "identified_count", 0)
+            total_problems = get_field_value(latest_review.analysis, "total_problems", 0)
+            
             if identified_count == total_problems and total_problems > 0:
                 # Also set review_sufficient to True to maintain state consistency
                 state.review_sufficient = True
@@ -107,5 +117,5 @@ class WorkflowConditions:
                 return "generate_summary"
         
         # Otherwise, continue reviewing
-        logger.info(f"Review path decision: continue_review (iteration {state.current_iteration}, not sufficient)")
+        logger.info(f"Review path decision: continue_review (iteration {current_iteration}, not sufficient)")
         return "continue_review"

@@ -9,7 +9,7 @@ import streamlit as st
 import logging
 from typing import List, Dict, Any, Optional, Tuple, Callable
 from utils.code_utils import add_line_numbers
-from utils.language_utils import t, get_current_language
+from utils.language_utils import t, get_current_language, get_field_value, get_state_attribute
 
 # Configure logging
 logging.basicConfig(
@@ -97,28 +97,6 @@ class CodeDisplayUI:
                     
                     # Show previous attempt results if available
                     if review_analysis:
-                        # Helper function to get field value with language awareness
-                        def get_field_value(data, english_name, default=None):
-                            """Get a field value with language awareness"""
-                            if english_name in data:
-                                return data[english_name]
-                            
-                            # Common Chinese translations for field names
-                            chinese_mappings = {
-                                "identified_count": ["已識別數量", "識別數量"],
-                                "total_problems": ["總問題數", "問題總數"],
-                                "identified_percentage": ["識別百分比", "識別百分率"],
-                                "review_sufficient": ["審查充分", "審查足夠"]
-                            }
-                            
-                            # Try possible Chinese field names
-                            if english_name in chinese_mappings:
-                                for chinese_name in chinese_mappings[english_name]:
-                                    if chinese_name in data:
-                                        return data[chinese_name]
-                            
-                            return default
-                        
                         # Get review metrics with language awareness
                         identified_count = get_field_value(review_analysis, "identified_count", 0)
                         total_problems = get_field_value(review_analysis, "total_problems", 0)

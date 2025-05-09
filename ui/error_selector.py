@@ -9,7 +9,7 @@ import streamlit as st
 import logging
 import random
 from typing import List, Dict, Any, Optional, Tuple, Callable
-from utils.language_utils import t
+from utils.language_utils import t, get_field_value, get_state_attribute
 
 # Configure logging
 logging.basicConfig(
@@ -71,7 +71,7 @@ class ErrorSelectorUI:
         # Add help text explaining how this mode works
         st.info(t("advanced_mode_help"))
         
-        java_error_categories = all_categories.get("java_errors", [])
+        java_error_categories = get_field_value(all_categories, "java_errors", [])
         
         # Ensure the session state structure is correct
         if "selected_error_categories" not in st.session_state:
@@ -80,7 +80,7 @@ class ErrorSelectorUI:
             st.session_state.selected_error_categories["java_errors"] = []
         
         # Get the current selection state from session
-        current_selections = st.session_state.selected_error_categories.get("java_errors", [])
+        current_selections = get_field_value(st.session_state.selected_error_categories, "java_errors", [])
         
         # Use a card-based grid layout for categories
         st.markdown('<div class="problem-area-grid">', unsafe_allow_html=True)
@@ -139,8 +139,8 @@ class ErrorSelectorUI:
             is_selected = category in current_selections
             
             # Get icon and description - fallback to defaults if not found
-            icon = category_info.get(category, {}).get("icon", "📁")
-            description = category_info.get(category, {}).get("description", t("error_category"))
+            icon = get_field_value(get_field_value(category_info, category, {}), "icon", "📁")
+            description = get_field_value(get_field_value(category_info, category, {}), "description", t("error_category"))
             
             # Get translated category name - if it's already in the correct language, this will just return the original
             category_name = t(category.lower()) if category.lower() in ["logical", "syntax", "code_quality", "standard_violation", "java_specific"] else category
@@ -187,7 +187,7 @@ class ErrorSelectorUI:
             # Display selected categories with visual enhancements
             st.markdown('<div class="selected-categories">', unsafe_allow_html=True)
             for i, category in enumerate(current_selections):
-                icon = category_info.get(category, {}).get("icon", "📁")
+                icon = get_field_value(get_field_value(category_info, category, {}), "icon", "📁")
                 category_name = t(category.lower()) if category.lower() in ["logical", "syntax", "code_quality", "standard_violation", "java_specific"] else category
                 
                 # Use index-based unique identifier for each category display
@@ -219,7 +219,7 @@ class ErrorSelectorUI:
         
         # Get all categories
         all_categories = error_repository.get_all_categories()
-        java_error_categories = all_categories.get("java_errors", [])
+        java_error_categories = get_field_value(all_categories, "java_errors", [])
         
         # Container for selected errors
         if "selected_specific_errors" not in st.session_state:
@@ -244,13 +244,13 @@ class ErrorSelectorUI:
                     
                 # Display each error with a select button
                 for j, error in enumerate(errors):
-                    # Handle potential missing field names
-                    error_name = error.get("error_name", "Unknown")
-                    description = error.get("description", "")
+                    # Handle potential missing field names using get_field_value
+                    error_name = get_field_value(error, "error_name", "Unknown")
+                    description = get_field_value(error, "description", "")
                     
                     # Check if already selected
                     is_selected = any(
-                        e["name"] == error_name and e["category"] == category
+                        get_field_value(e, "name", "") == error_name and get_field_value(e, "category", "") == category
                         for e in st.session_state.selected_specific_errors
                     )
                     
@@ -269,7 +269,7 @@ class ErrorSelectorUI:
                                     "category": category,
                                     "name": error_name,
                                     "description": description,
-                                    "implementation_guide": error.get("implementation_guide", "")
+                                    "implementation_guide": get_field_value(error, "implementation_guide", "")
                                 })
                                 st.rerun()
                         else:
@@ -287,8 +287,8 @@ class ErrorSelectorUI:
             for idx, error in enumerate(st.session_state.selected_specific_errors):
                 col1, col2 = st.columns([5, 1])
                 with col1:
-                    st.markdown(f"**{error['category']} - {error['name']}**")
-                    st.markdown(f"*{error['description']}*")
+                    st.markdown(f"**{get_field_value(error, 'category', '')} - {get_field_value(error, 'name', '')}**")
+                    st.markdown(f"*{get_field_value(error, 'description', '')}*")
                 with col2:
                     # Use numerical index only to avoid potential issues with Chinese characters in keys
                     remove_key = f"remove_{idx}"
@@ -369,7 +369,7 @@ class ErrorSelectorUI:
             "medium": f"{t('medium')}",
             "senior": f"{t('hard')}"
         }
-        difficulty_level = difficulty_mapping.get(normalized_level, "medium")
+        difficulty_level = get_field_value(difficulty_mapping, normalized_level, "medium")
         
         # Set code length based on difficulty
         length_mapping = {
@@ -377,7 +377,7 @@ class ErrorSelectorUI:
            f"{t('medium')}": f"{t('medium')}",
            f"{t('hard')}": f"{t('long')}"
         }
-        code_length = length_mapping.get(difficulty_level, "medium")
+        code_length = get_field_value(length_mapping, difficulty_level, "medium")
        
         # Update session state for consistency
         st.session_state.difficulty_level = difficulty_level.capitalize()

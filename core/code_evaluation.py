@@ -14,6 +14,7 @@ from langchain_core.language_models import BaseLanguageModel
 
 from utils.llm_logger import LLMInteractionLogger
 from utils.code_utils import create_evaluation_prompt, create_regeneration_prompt, process_llm_response
+from utils.language_utils import get_field_value  # Add this import for language-aware field access
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -116,33 +117,31 @@ class CodeEvaluationAgent:
         # Determine domain from existing code
         domain = self._infer_domain_from_code(code)
         
-        # Extract missing and found errors
+        # Extract missing and found errors using get_field_value for language awareness
         missing_errors = []
         found_errors = []
         
         # Process missing errors - handle both string and dictionary formats
-        if "missing_errors" in evaluation:
-            for error in evaluation["missing_errors"]:
-                if isinstance(error, dict):
-                    error_type = error.get("error_type", "").upper()
-                    error_name = error.get("error_name", "")
-                    missing_errors.append(f"{error_type} - {error_name}")
-                elif isinstance(error, str):
-                    missing_errors.append(error)
+        missing_errors_list = get_field_value(evaluation, "missing_errors", [])
+        for error in missing_errors_list:
+            if isinstance(error, dict):
+                error_type = get_field_value(error, "error_type", "").upper()
+                error_name = get_field_value(error, "error_name", "")
+                missing_errors.append(f"{error_type} - {error_name}")
+            elif isinstance(error, str):
+                missing_errors.append(error)
         
         # Process found errors - handle both string and dictionary formats
-        if "found_errors" in evaluation:
-            for error in evaluation["found_errors"]:
-                if isinstance(error, dict):
-                    error_type = error.get("error_type", "").upper()
-                    error_name = error.get("error_name", "")
-                    found_errors.append(f"{error_type} - {error_name}")
-                elif isinstance(error, str):
-                    found_errors.append(error)
+        found_errors_list = get_field_value(evaluation, "found_errors", [])
+        for error in found_errors_list:
+            if isinstance(error, dict):
+                error_type = get_field_value(error, "error_type", "").upper()
+                error_name = get_field_value(error, "error_name", "")
+                found_errors.append(f"{error_type} - {error_name}")
+            elif isinstance(error, str):
+                found_errors.append(error)
         
         # Use the optimized prompt function
-
-        
         prompt = create_regeneration_prompt(
             code=code,
             domain=domain,
@@ -354,7 +353,7 @@ class CodeEvaluationAgent:
                 "feedback": f"Invalid evaluation result type: {type(result)}"
             }
         
-        # Ensure all expected fields exist with proper defaults
+        # Ensure all expected fields exist with proper defaults - use get_field_value for language awareness
         if "found_errors" not in result:
             result["found_errors"] = []
         if "missing_errors" not in result:
@@ -362,14 +361,21 @@ class CodeEvaluationAgent:
         if "extra_errors" not in result:
             result["extra_errors"] = []
         
+        # Get field values with language awareness
+        found_errors = get_field_value(result, "found_errors", [])
+        missing_errors = get_field_value(result, "missing_errors", [])
+        extra_errors = get_field_value(result, "extra_errors", [])
+        
         # Ensure found_errors is a list
-        if not isinstance(result["found_errors"], list):
-            logger.warning(f"found_errors is not a list, got {type(result['found_errors'])}")
+        if not isinstance(found_errors, list):
+            logger.warning(f"found_errors is not a list, got {type(found_errors)}")
+            found_errors = []
             result["found_errors"] = []
         
         # Ensure missing_errors is a list
-        if not isinstance(result["missing_errors"], list):
-            logger.warning(f"missing_errors is not a list, got {type(result['missing_errors'])}")
+        if not isinstance(missing_errors, list):
+            logger.warning(f"missing_errors is not a list, got {type(missing_errors)}")
+            missing_errors = []
             result["missing_errors"] = []
         
         # Convert requested errors to keys for easier lookup
@@ -387,7 +393,7 @@ class CodeEvaluationAgent:
         # Process found errors to make sure they're in the right format for regeneration
         processed_found_errors = []
         
-        for error in result["found_errors"]:
+        for error in found_errors:
             # Skip non-dict errors with warning
             if not isinstance(error, dict):
                 try:
@@ -404,8 +410,14 @@ class CodeEvaluationAgent:
                     logger.warning(f"Could not process non-dict error: {error}")
                 continue
                 
-            error_type = error.get("error_type", "").upper()
-            error_name = error.get("error_name", "")
+            # Use get_field_value for language-aware access
+            error_type = get_field_value(error, "error_type", "").upper()
+            if not error_type:
+                error_type = get_field_value(error, "type", "").upper()
+                
+            error_name = get_field_value(error, "error_name", "")
+            if not error_name:
+                error_name = get_field_value(error, "name", "")
             
             if error_type and error_name:
                 processed_found_errors.append(f"{error_type} - {error_name}")
@@ -413,7 +425,7 @@ class CodeEvaluationAgent:
         # Process missing errors to ensure they're in the right format for regeneration
         processed_missing_errors = []
         
-        for error in result["missing_errors"]:
+        for error in missing_errors:
             # Skip non-dict errors with warning
             if not isinstance(error, dict):
                 try:
@@ -430,8 +442,14 @@ class CodeEvaluationAgent:
                     logger.warning(f"Could not process non-dict error: {error}")
                 continue
                 
-            error_type = error.get("error_type", "").upper()
-            error_name = error.get("error_name", "")
+            # Use get_field_value for language-aware access
+            error_type = get_field_value(error, "error_type", "").upper()
+            if not error_type:
+                error_type = get_field_value(error, "type", "").upper()
+                
+            error_name = get_field_value(error, "error_name", "")
+            if not error_name:
+                error_name = get_field_value(error, "name", "")
             
             if error_type and error_name:
                 processed_missing_errors.append(f"{error_type} - {error_name}")
@@ -454,5 +472,3 @@ class CodeEvaluationAgent:
                             f"requested errors. Missing {len(processed_missing_errors)} errors.")
         
         return result
-    
-    

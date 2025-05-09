@@ -11,6 +11,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from .student_response_evaluator import StudentResponseEvaluator
 from langchain_core.language_models import BaseLanguageModel
 from utils.code_utils import process_llm_response
+from utils.language_utils import get_field_value  # Add this import for language support
 
 # Configure logging
 logging.basicConfig(
@@ -96,8 +97,8 @@ class FeedbackManager:
             evaluation_result: Evaluation results containing found errors
         """
         self.code_snippet = code_snippet
-        # Extract found problems from evaluation result
-        self.known_problems = evaluation_result.get('found_errors', [])
+        # Extract found problems from evaluation result - use get_field_value for language awareness
+        self.known_problems = get_field_value(evaluation_result, 'found_errors', [])
         self.review_history = []
         self.current_iteration = 1
         self.review_sufficient = False
@@ -127,8 +128,8 @@ class FeedbackManager:
             student_review=student_review
         )
         
-        # Check if the review is sufficient
-        self.review_sufficient = review_analysis.get("review_sufficient", False)
+        # Check if the review is sufficient - use get_field_value for language awareness
+        self.review_sufficient = get_field_value(review_analysis, "review_sufficient", False)
         
         # Generate targeted guidance if needed
         targeted_guidance = None
@@ -250,10 +251,10 @@ class FeedbackManager:
             for i, (review, analysis) in enumerate(zip(reviews, analyses), 1):
                 reviews_text.append(f"REVIEW ATTEMPT {i}:\n```\n{review}\n```\n")
                 
-                # Add key metrics for this review
-                identified = analysis.get("identified_count", 0)
-                total = analysis.get("total_problems", len(known_problems))
-                percentage = analysis.get("identified_percentage", 0)
+                # Add key metrics for this review - use get_field_value for language awareness
+                identified = get_field_value(analysis, "identified_count", 0)
+                total = get_field_value(analysis, "total_problems", len(known_problems))
+                percentage = get_field_value(analysis, "identified_percentage", 0)
                 reviews_text.append(f"- Found {identified}/{total} issues ({percentage:.1f}%)\n")
             
             all_reviews = "\n".join(reviews_text)
@@ -261,33 +262,33 @@ class FeedbackManager:
             # Get final review analysis
             final_analysis = analyses[-1] if analyses else {}
             
-            # Extract problem lists
+            # Extract problem lists - use get_field_value for language awareness
             identified_problems = []
-            if "identified_problems" in final_analysis:
-                if isinstance(final_analysis["identified_problems"], list):
-                    for problem in final_analysis["identified_problems"]:
-                        if isinstance(problem, dict) and "problem" in problem:
-                            identified_problems.append(problem["problem"])
-                        elif isinstance(problem, str):
-                            identified_problems.append(problem)
+            identified_problems_list = get_field_value(final_analysis, "identified_problems", [])
+            if isinstance(identified_problems_list, list):
+                for problem in identified_problems_list:
+                    if isinstance(problem, dict) and "problem" in problem:
+                        identified_problems.append(problem["problem"])
+                    elif isinstance(problem, str):
+                        identified_problems.append(problem)
             
             missed_problems = []
-            if "missed_problems" in final_analysis:
-                if isinstance(final_analysis["missed_problems"], list):
-                    for problem in final_analysis["missed_problems"]:
-                        if isinstance(problem, dict) and "problem" in problem:
-                            missed_problems.append(problem["problem"])
-                        elif isinstance(problem, str):
-                            missed_problems.append(problem)
+            missed_problems_list = get_field_value(final_analysis, "missed_problems", [])
+            if isinstance(missed_problems_list, list):
+                for problem in missed_problems_list:
+                    if isinstance(problem, dict) and "problem" in problem:
+                        missed_problems.append(problem["problem"])
+                    elif isinstance(problem, str):
+                        missed_problems.append(problem)
             
             false_positives = []
-            if "false_positives" in final_analysis:
-                if isinstance(final_analysis["false_positives"], list):
-                    for item in final_analysis["false_positives"]:
-                        if isinstance(item, dict) and "student_comment" in item:
-                            false_positives.append(item["student_comment"])
-                        elif isinstance(item, str):
-                            false_positives.append(item)
+            false_positives_list = get_field_value(final_analysis, "false_positives", [])
+            if isinstance(false_positives_list, list):
+                for item in false_positives_list:
+                    if isinstance(item, dict) and "student_comment" in item:
+                        false_positives.append(item["student_comment"])
+                    elif isinstance(item, str):
+                        false_positives.append(item)
             
             # Format the problems for the prompt
             identified_text = "\n".join([f"- {p}" for p in identified_problems])
@@ -363,11 +364,12 @@ class FeedbackManager:
         # Build a feedback summary
         feedback = "# Final Review Feedback\n\n"
         
-        # Analysis stats
+        # Analysis stats - use get_field_value for language awareness
         analysis = latest_review.review_analysis
-        identified_count = analysis.get("identified_count", 0)
-        total_problems = analysis.get("total_problems", len(self.known_problems))
-        identified_percentage = analysis.get("identified_percentage", 0)
+        print("analysisanalysisanalysisanalysis: ", analysis)
+        identified_count = get_field_value(analysis, "identified_count", 0)
+        total_problems = get_field_value(analysis, "total_problems", len(self.known_problems))
+        identified_percentage = get_field_value(analysis, "identified_percentage", 0)
         
         # Performance summary
         feedback += "## Review Performance\n\n"
@@ -387,17 +389,15 @@ class FeedbackManager:
         # Strengths and areas for improvement
         feedback += "## Strengths\n\n"
         
-        # Extract identified problems for display
+        # Extract identified problems for display - use get_field_value for language awareness
         identified_problems = []
-        if "identified_problems" in analysis:
-            if isinstance(analysis["identified_problems"], list):
-                for problem in analysis["identified_problems"]:
-                    if isinstance(problem, dict) and "problem" in problem:
-                        identified_problems.append(problem["problem"])
-                    elif isinstance(problem, str):
-                        identified_problems.append(problem)
-        else:
-            identified_problems = analysis.get("identified_problems", [])
+        identified_problems_list = get_field_value(analysis, "identified_problems", [])
+        if isinstance(identified_problems_list, list):
+            for problem in identified_problems_list:
+                if isinstance(problem, dict) and "problem" in problem:
+                    identified_problems.append(problem["problem"])
+                elif isinstance(problem, str):
+                    identified_problems.append(problem)
         
         if identified_problems:
             feedback += "You correctly identified:\n\n"
@@ -408,20 +408,18 @@ class FeedbackManager:
         
         feedback += "\n## Areas for Improvement\n\n"
         
-        # Extract missed problems for display
+        # Extract missed problems for display - use get_field_value for language awareness
         missed_problems = []
-        if "missed_problems" in analysis:
-            if isinstance(analysis["missed_problems"], list):
-                for problem in analysis["missed_problems"]:
-                    if isinstance(problem, dict) and "problem" in problem:
-                        missed_problems.append(problem["problem"])
-                        # Include hint if available
-                        if "hint" in problem:
-                            missed_problems[-1] += f" (Hint: {problem['hint']})"
-                    elif isinstance(problem, str):
-                        missed_problems.append(problem)
-        else:
-            missed_problems = analysis.get("missed_problems", [])
+        missed_problems_list = get_field_value(analysis, "missed_problems", [])
+        if isinstance(missed_problems_list, list):
+            for problem in missed_problems_list:
+                if isinstance(problem, dict) and "problem" in problem:
+                    missed_problems.append(problem["problem"])
+                    # Include hint if available
+                    if "hint" in problem:
+                        missed_problems[-1] += f" (Hint: {problem['hint']})"
+                elif isinstance(problem, str):
+                    missed_problems.append(problem)
         
         if missed_problems:
             feedback += "You missed these important issues:\n\n"
@@ -430,19 +428,17 @@ class FeedbackManager:
         else:
             feedback += "Great job! You found all the issues.\n"
         
-        # False positives section
+        # False positives section - use get_field_value for language awareness
         false_positives = []
-        if "false_positives" in analysis:
-            if isinstance(analysis["false_positives"], list):
-                for item in analysis["false_positives"]:
-                    if isinstance(item, dict) and "student_comment" in item:
-                        comment = item["student_comment"]
-                        explanation = item.get("explanation", "")
-                        false_positives.append(f"{comment}" + (f" ({explanation})" if explanation else ""))
-                    elif isinstance(item, str):
-                        false_positives.append(item)
-        else:
-            false_positives = analysis.get("false_positives", [])
+        false_positives_list = get_field_value(analysis, "false_positives", [])
+        if isinstance(false_positives_list, list):
+            for item in false_positives_list:
+                if isinstance(item, dict) and "student_comment" in item:
+                    comment = item["student_comment"]
+                    explanation = item.get("explanation", "")
+                    false_positives.append(f"{comment}" + (f" ({explanation})" if explanation else ""))
+                elif isinstance(item, str):
+                    false_positives.append(item)
         
         if false_positives:
             feedback += "\n## False Positives\n\n"
@@ -461,8 +457,9 @@ class FeedbackManager:
             for iteration in self.review_history:
                 iter_num = iteration.iteration_number
                 iter_analysis = iteration.review_analysis
-                iter_found = iter_analysis.get("identified_count", 0)
-                iter_accuracy = iter_analysis.get("identified_percentage", 0)
+                # Use get_field_value for language awareness
+                iter_found = get_field_value(iter_analysis, "identified_count", 0)
+                iter_accuracy = get_field_value(iter_analysis, "identified_percentage", 0)
                 
                 feedback += f"| {iter_num} | {iter_found}/{total_problems} | {iter_accuracy:.1f}% |\n"
         
