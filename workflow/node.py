@@ -451,18 +451,24 @@ class WorkflowNodes:
                 analysis["identified_percentage"] = (identified_count / original_error_count) * 100
                 analysis["accuracy_percentage"] = (identified_count / original_error_count) * 100
                 
+                # Handle field language consistently
+                identified_problems = analysis.get("identified_problems", [])
+                missed_problems = analysis.get("missed_problems", [])
+                
                 logger.info(f"Updated review analysis: {identified_count}/{original_error_count} " +
                         f"({analysis['identified_percentage']:.1f}%) [Found problems: {found_problems_count}]")
-                # NEW CODE: Mark review as sufficient if all errors are found regardless of LLM assessment
+                
+                # Mark review as sufficient if all errors are found
                 if identified_count == original_error_count:
                     analysis["review_sufficient"] = True
                     logger.info("All errors found! Marking review as sufficient.")
+                    
 
             # Update the review with analysis
             latest_review.analysis = analysis
             
-            # Check if the review is sufficient
-            review_sufficient = analysis.get("review_sufficient", False)
+            # Check if the review is sufficient - with language awareness
+            review_sufficient = get_field_value(analysis, "review_sufficient", False)
             state.review_sufficient = review_sufficient
             
             # Generate targeted guidance if needed

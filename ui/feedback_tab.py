@@ -81,6 +81,22 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
                 "review_analysis": review.analysis
             })
     
+    if latest_review and latest_review.analysis:
+        # Get the original error count
+        original_error_count = state.original_error_count
+        if original_error_count <= 0:
+            original_error_count = analysis.get("total_problems", 0)
+        
+        identified_count = analysis.get("identified_count", 0)
+        identified_percentage = (identified_count / original_error_count * 100) if original_error_count > 0 else 0
+        
+        state.review_summary = (
+            f"# {t('review_summary')}\n\n"
+            f"{t('you_found')} {identified_count} {t('of')} {original_error_count} {t('issues')} "
+            f"({identified_percentage:.1f}% {t('accuracy')}).\n\n"
+            f"{t('check_detailed_analysis')}"
+        )
+
     # If we have review history but no comparison report, generate one
     if latest_review and latest_review.analysis and not state.comparison_report:
         try:

@@ -123,7 +123,7 @@ class FeedbackDisplayUI:
         st.markdown("---")            
             
     def _render_performance_summary(self, review_analysis: Dict[str, Any], review_history: List[Dict[str, Any]]):
-        """Render performance summary metrics and charts using the consistent original error count"""
+        """Render performance summary metrics and charts with proper Chinese font support"""
         st.subheader(t("review_performance_summary"))
         
         # Create performance metrics using the original error count if available
@@ -151,14 +151,14 @@ class FeedbackDisplayUI:
                 f"{accuracy:.1f}%",
                 delta=None
             )
-            
+                
         with col2:
             st.metric(
                 t("issues_identified"), 
                 f"{identified_count}/{original_error_count}",
                 delta=None
             )
-            
+                
         with col3:
             false_positives = len(review_analysis.get("false_positives", []))
             st.metric(
@@ -166,7 +166,7 @@ class FeedbackDisplayUI:
                 f"{false_positives}",
                 delta=None
             )
-            
+                
         # Create a progress chart if multiple iterations
         if len(review_history) > 1:
             # Extract data for chart
@@ -185,44 +185,109 @@ class FeedbackDisplayUI:
                 # Calculate accuracy consistently
                 review_accuracy = (review_identified / original_error_count * 100) if original_error_count > 0 else 0
                 accuracy_percentages.append(review_accuracy)
+            
+            # Configure matplotlib for Chinese text support
+            import matplotlib.font_manager as fm
+            import matplotlib as mpl
+            import platform
+            import locale
+            import os
+            
+            # First try to set font based on operating system
+            system = platform.system()
+            default_font = None
+            
+            try:
+                # Different font defaults based on OS
+                if system == 'Windows':
+                    chinese_fonts = ['Microsoft YaHei', 'SimHei', 'SimSun', 'Arial Unicode MS']
+                elif system == 'Darwin':  # macOS
+                    chinese_fonts = ['PingFang TC', 'STHeiti', 'Heiti TC', 'Apple LiGothic', 'Hiragino Sans GB']
+                else:  # Linux and others
+                    chinese_fonts = ['WenQuanYi Zen Hei', 'Droid Sans Fallback', 'Noto Sans CJK TC', 'Noto Sans TC']
+                
+                # Try to find a suitable font that exists
+                for font_name in chinese_fonts:
+                    font_path = None
+                    for f in fm.findSystemFonts():
+                        if font_name.lower() in os.path.basename(f).lower():
+                            font_path = f
+                            break
                     
-            # Create a DataFrame for the chart
+                    if font_path:
+                        # Add font to matplotlib's font manager
+                        fm.fontManager.addfont(font_path)
+                        default_font = font_name
+                        break
+                
+                # Configure matplotlib to use the font
+                if default_font:
+                    mpl.rcParams['font.family'] = ['sans-serif']
+                    mpl.rcParams['font.sans-serif'] = [default_font, 'DejaVu Sans', 'Arial Unicode MS']
+                else:
+                    # Fallback to system locale-based detection
+                    current_locale = locale.getlocale()[0]
+                    if current_locale and ('zh' in current_locale.lower() or 'tw' in current_locale.lower()):
+                        # For Chinese locales, use a more aggressive approach with common Chinese fonts
+                        mpl.rcParams['font.family'] = ['sans-serif']
+                        mpl.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Arial Unicode MS'] 
+                    
+                # Prevent minus sign from being rendered as a Unicode character
+                mpl.rcParams['axes.unicode_minus'] = False
+            
+            except Exception as e:
+                # Log the error but continue without crashing
+                logger.warning(f"Error configuring matplotlib fonts: {str(e)}")
+                # Safe fallback for matplotlib configuration
+                mpl.rcParams['font.family'] = ['sans-serif']
+            
+            # Create a DataFrame with renamed columns - use English labels for internal processing
+            # This ensures compatibility with matplotlib
             chart_data = pd.DataFrame({
-                t("attempt"): iterations,
-                t("issues_found"): identified_counts,
-                f"{t('accuracy')} (%)": accuracy_percentages
+                "Attempt": iterations,
+                "Issues Found": identified_counts,
+                "Accuracy (%)": accuracy_percentages
             })
             
             # Display the chart with two y-axes
             st.subheader(t("progress_across_iterations"))
             
-            # Using matplotlib for more control
+            # Create plot with English labels initially
             fig, ax1 = plt.subplots(figsize=(10, 4))
             
             color = 'tab:blue'
-            ax1.set_xlabel(t('iteration'))
-            ax1.set_ylabel(t('issues_found'), color=color)
-            ax1.plot(chart_data[t("attempt")], chart_data[t("issues_found")], marker='o', color=color)
+            ax1.set_xlabel('Iteration')  # Use English initially
+            ax1.set_ylabel('Issues Found', color=color)  # Use English initially
+            ax1.plot(chart_data["Attempt"], chart_data["Issues Found"], marker='o', color=color)
             ax1.tick_params(axis='y', labelcolor=color)
             ax1.grid(True, linestyle='--', alpha=0.7)
             
             ax2 = ax1.twinx()  # Create a second y-axis
             color = 'tab:red'
-            ax2.set_ylabel(f"{t('accuracy')} (%)", color=color)
-            ax2.plot(chart_data[t("attempt")], chart_data[f"{t('accuracy')} (%)"], marker='s', color=color)
+            ax2.set_ylabel('Accuracy (%)', color=color)  # Use English initially
+            ax2.plot(chart_data["Attempt"], chart_data["Accuracy (%)"], marker='s', color=color)
             ax2.tick_params(axis='y', labelcolor=color)
+            
+            # Now update the labels with translated text
+            ax1.set_xlabel(t('iteration'))
+            ax1.set_ylabel(t('issues_found'), color='tab:blue')
+            ax2.set_ylabel(f"{t('accuracy')} (%)", color='tab:red')
+            
+            # Add a title with translated text
+            plt.title(t("progress_across_iterations"))
             
             fig.tight_layout()
             st.pyplot(fig)
     
     def _render_identified_issues(self, review_analysis: Dict[str, Any]):
-        """Render identified issues section"""
+        """Render identified issues section with language support"""
+        # Use translated field name for display but English field name for access
         identified_problems = review_analysis.get("identified_problems", [])
         
         if not identified_problems:
             st.info(t("no_identified_issues"))
             return
-            
+                
         st.subheader(f"{t('correctly_identified_issues')} ({len(identified_problems)})")
         
         for i, issue in enumerate(identified_problems, 1):
@@ -233,16 +298,17 @@ class FeedbackDisplayUI:
                 </div>
                 """, 
                 unsafe_allow_html=True
-            )
-    
+        )
+
     def _render_missed_issues(self, review_analysis: Dict[str, Any]):
-        """Render missed issues section"""
+        """Render missed issues section with language support"""
+        # Use translated field name for display but English field name for access
         missed_problems = review_analysis.get("missed_problems", [])
         
         if not missed_problems:
             st.success(t("all_issues_found"))
             return
-            
+                
         st.subheader(f"{t('issues_missed')} ({len(missed_problems)})")
         
         for i, issue in enumerate(missed_problems, 1):

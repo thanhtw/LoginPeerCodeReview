@@ -350,101 +350,78 @@ def create_feedback_prompt(code: str, known_problems: list, review_analysis: dic
     
     return prompt
 
-def create_comparison_report_prompt(evaluation_errors: List[str], review_analysis: Dict[str, Any], review_history: List[Dict[str, Any]] = None) -> str:
+def generate_comparison_report(evaluation_errors: List[str], review_analysis: Dict[str, Any], 
+                              review_history: List[Dict[str, Any]] = None, llm = None) -> str:
     """
-    Create a prompt for generating a comparison report with an LLM.
-    Now uses language-specific templates based on current language.
+    Generate a comparison report with proper language handling
     
     Args:
         evaluation_errors: List of errors found by the evaluation
         review_analysis: Analysis of the latest student review
         review_history: History of all review attempts
+        llm: Optional language model to generate the report
         
     Returns:
-        Comparison report prompt string
+        Formatted comparison report
     """
-    # Extract performance metrics from latest review
-    identified_problems = review_analysis.get("identified_problems", [])
-    missed_problems = review_analysis.get("missed_problems", [])
-    false_positives = review_analysis.get("false_positives", [])
-    
-    # Get total problems count
-    total_problems = (review_analysis.get("total_problems", 0) or 
-                       review_analysis.get("original_error_count", 0) or 
-                       len(evaluation_errors))
-    
-    # Calculate metrics
-    identified_count = len(identified_problems)
-    accuracy = (identified_count / total_problems * 100) if total_problems > 0 else 0
-    
-    # Format the problems for the prompt
-    identified_str = []
-    for problem in identified_problems:
-        if isinstance(problem, dict) and "problem" in problem:
-            identified_str.append(problem["problem"])
-        elif isinstance(problem, str):
-            identified_str.append(problem)
-    
-    missed_str = []
-    for problem in missed_problems:
-        if isinstance(problem, dict) and "problem" in problem:
-            missed_str.append(problem["problem"])
-        elif isinstance(problem, str):
-            missed_str.append(problem)
-    
-    false_str = []
-    for problem in false_positives:
-        if isinstance(problem, dict) and "student_comment" in problem:
-            false_str.append(problem["student_comment"])
-        elif isinstance(problem, str):
-            false_str.append(problem)
-    
-    # Format identified problems for the prompt
-    identified_text = "\n".join(f"- {p}" for p in identified_str)
-    missed_text = "\n".join(f"- {p}" for p in missed_str)
-    false_positive_text = "\n".join(f"- {p}" for p in false_str)
-    
-    # Create progress tracking info if multiple attempts exist
-    progress_info = ""
-    if review_history and len(review_history) > 1:
-        progress_info = "## Progress Across Attempts\n\n"
+    # If LLM is provided, use it to generate the report with correct language
+    if llm:
+        try:
+            # Create the prompt for the LLM
+            prompt = create_comparison_report_prompt(evaluation_errors, review_analysis, review_history)
+            
+            # Generate the report with the LLM
+            response = llm.invoke(prompt)
+            
+            # Process the response
+            if hasattr(response, 'content'):
+                report = response.content
+            elif isinstance(response, dict) and 'content' in response:
+                report = response['content']
+            else:
+                report = str(response)
+            
+            # Clean up the report
+            report = report.replace('\\n', '\n')
+            
+            return report
+        except Exception as e:
+            # Log the error
+            logger.error(f"Error generating comparison report with LLM: {str(e)}")
+            
+            # Fall back to static generation with translated field names
+            from utils.language_utils import t
+            
+            # Get identified, missed and false positive info with language awareness
+            identified_count = review_analysis.get("identified_count", 0)
+            total_problems = review_analysis.get("total_problems", 0)
+            accuracy = (identified_count / total_problems * 100) if total_problems > 0 else 0
+            
+            # Create a basic report with translated field names
+            return (
+                f"# {t('review_feedback')}\n\n"
+                f"## {t('review_performance_summary')}\n\n"
+                f"{t('you_found')} {identified_count} {t('of')} {total_problems} {t('issues')} "
+                f"({accuracy:.1f}% {t('accuracy')}).\n\n"
+                f"{t('check_detailed_analysis')}"
+            )
+    else:
+        # If no LLM is provided, use static generation with translated field names
+        from utils.language_utils import t
         
-        for i, review in enumerate(review_history, 1):
-            analysis = review.get("review_analysis", {})
-            found = analysis.get("identified_count", 0)
-            acc = analysis.get("identified_percentage", 0)
-            progress_info += f"Attempt {i}: Found {found}/{total_problems} issues ({acc:.1f}%)\n"
+        # Get identified, missed and false positive info with language awareness
+        identified_count = review_analysis.get("identified_count", 0)
+        total_problems = review_analysis.get("total_problems", 0)
+        accuracy = (identified_count / total_problems * 100) if total_problems > 0 else 0
         
-        # Compare first vs. latest attempt
-        first = review_history[0].get("review_analysis", {})
-        first_found = first.get("identified_count", 0)
-        first_acc = first.get("identified_percentage", 0)
-        
-        if accuracy > first_acc:
-            improvement = accuracy - first_acc
-            progress_info += f"\nImprovement: +{improvement:.1f}% from first attempt\n"
-
-    # Get language-specific instructions
-    language_instructions = get_llm_instructions()
-
-    # Get language-specific template
-    template = get_prompt_template("comparison_report_template")
-    
-    # Create the prompt by filling in the template safely
-    prompt = f"{language_instructions}. " + format_template_safely(
-        template,
-        total_problems=total_problems,
-        identified_count=identified_count,
-        accuracy=accuracy,
-        len_missed_str=len(missed_str),
-        len_false_str=len(false_str),
-        identified_text=identified_text or "None - the student didn't identify any correct issues.",
-        missed_text=missed_text or "None - the student identified all issues correctly!",
-        false_positive_text=false_positive_text or "None - the student didn't identify any false issues.",
-        progress_info=progress_info
-    )
-
-    return prompt
+        # Create a basic report with translated field names
+        return (
+            f"# {t('review_feedback')}\n\n"
+            f"## {t('review_performance_summary')}\n\n"
+            f"{t('you_found')} {identified_count} {t('of')} {total_problems} {t('issues')} "
+            f"({accuracy:.1f}% {t('accuracy')}).\n\n"
+            f"{t('check_detailed_analysis')}"
+        )
 
 def extract_both_code_versions(response) -> Tuple[str, str]:
     """

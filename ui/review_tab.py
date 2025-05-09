@@ -93,6 +93,20 @@ def process_student_review(workflow, student_review: str):
             # Update session state
             st.session_state.workflow_state = updated_state
             
+            # Check if all errors were found
+            if hasattr(updated_state, 'review_history') and updated_state.review_history:
+                latest_review = updated_state.review_history[-1]
+                if hasattr(latest_review, 'analysis') and latest_review.analysis:
+                    analysis = latest_review.analysis
+                    identified_count = analysis.get("identified_count", 0)
+                    total_problems = analysis.get("total_problems", 0)
+                    
+                    # If all errors are found, mark review as sufficient and set active tab
+                    if identified_count == total_problems and total_problems > 0:
+                        updated_state.review_sufficient = True
+                        st.session_state.active_tab = 2  # Switch to feedback tab
+                        logger.info("All errors found! Automatically switching to feedback tab.")
+            
             # Log successful analysis
             logger.info(f"Review analysis complete for iteration {current_iteration}")
             
@@ -174,12 +188,15 @@ def render_review_tab(workflow, code_display_ui):
             targeted_guidance = getattr(latest_review, 'targeted_guidance', None)
             review_analysis = getattr(latest_review, 'analysis', {})
 
+    # Check if all errors are found - regardless of language
     all_errors_found = False
     if review_analysis:
         identified_count = review_analysis.get("identified_count", 0)
         total_problems = review_analysis.get("total_problems", 0)
         if identified_count == total_problems and total_problems > 0:
             all_errors_found = True
+            # Ensure state is updated when all errors are found
+            st.session_state.workflow_state.review_sufficient = True
     
     # Only allow submission if we're under the max iterations
     if current_iteration <= max_iterations and not st.session_state.workflow_state.review_sufficient and not all_errors_found:
@@ -201,12 +218,24 @@ def render_review_tab(workflow, code_display_ui):
             # Update session state with the new state
             st.session_state.workflow_state = updated_state
             
-            # Check if this was the last iteration or review is sufficient
-            if updated_state.current_iteration >= updated_state.max_iterations or updated_state.review_sufficient:
+            # Check if all errors found or this was the last iteration
+            all_found = False
+            if updated_state.review_history and len(updated_state.review_history) > 0:
+                latest = updated_state.review_history[-1]
+                if hasattr(latest, 'analysis'):
+                    analysis = latest.analysis
+                    identified = analysis.get("identified_count", 0)
+                    total = analysis.get("total_problems", 0)
+                    all_found = (identified == total and total > 0)
+            
+            # Check if this was the last iteration or review is sufficient or all errors found
+            if (updated_state.current_iteration >= updated_state.max_iterations or 
+                updated_state.review_sufficient or all_found):
                 logger.info(t("review_process_complete"))
                 # Switch to feedback tab (index 2)
                 st.session_state.active_tab = 2
-                # Force rerun to update UI
+            
+            # Force rerun to update UI
             st.rerun()
         
         # Render review input with current state
@@ -222,14 +251,13 @@ def render_review_tab(workflow, code_display_ui):
         # Display appropriate message based on why review is blocked
         if st.session_state.workflow_state.review_sufficient or all_errors_found:
             st.success(f"{t('all_errors_found')}")
+            # If all errors found, ensure we move to the feedback tab
+            if st.session_state.active_tab != 2:
+                st.session_state.active_tab = 2
+                st.rerun()
         else:
             st.warning(t("iterations_completed").format(max_iterations=max_iterations))
         
         if st.button(f"{t('view_feedback')}"):
             st.session_state.active_tab = 2  # 2 is the index of the feedback tab
-            st.rerun()
-        
-        # Automatically switch to feedback tab if not already there
-        if st.session_state.active_tab != 2:
-            st.session_state.active_tab = 2
             st.rerun()

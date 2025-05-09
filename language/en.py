@@ -317,5 +317,17 @@ translations = {
     "no_code_snippet_available": "No code snippet available",
     "no_review_submitted": "No review submitted to analyze",
     "student_evaluator_not_initialized": "Student response evaluator not initialized",
-    "current_language": "Current Language"
+    "current_language": "Current Language",
+
+    # Field name translations
+    "identified_problems": "Identified Problems",
+    "missed_problems": "Missed Problems", 
+    "false_positives": "False Positives",
+    "identified_count": "Identified Count",
+    "total_problems": "Total Problems",
+    "accuracy_percentage": "Accuracy Percentage",
+    "review_sufficient": "Review Sufficient",
+    "feedback": "Feedback",
+    "review_summary": "Review Summary",
+    "check_detailed_analysis": "Check the detailed analysis in the comparison report for more information."
 }

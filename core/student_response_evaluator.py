@@ -153,34 +153,15 @@ class StudentResponseEvaluator:
         else:
             review_sufficient = identified_percentage >= self.min_identified_percentage
         
-        # Extract problem lists
-        identified_problems = analysis_data.get("identified_problems", [])
-        missed_problems = analysis_data.get("missed_problems", [])
-        false_positives = analysis_data.get("false_positives", [])
+        # Extract problem lists with language-aware handling
+        identified_problems = self._process_problem_list(analysis_data.get("identified_problems", []))
+        missed_problems = self._process_problem_list(analysis_data.get("missed_problems", []))
+        false_positives = self._process_problem_list(analysis_data.get("false_positives", []), key="student_comment")
         
-        # Simplify the identified problems list if needed
-        simple_identified = []
-        for problem in identified_problems:
-            if isinstance(problem, dict) and "problem" in problem:
-                simple_identified.append(problem["problem"])
-            elif isinstance(problem, str):
-                simple_identified.append(problem)
-        
-        # Simplify the missed problems list if needed
-        simple_missed = []
-        for problem in missed_problems:
-            if isinstance(problem, dict) and "problem" in problem:
-                simple_missed.append(problem["problem"])
-            elif isinstance(problem, str):
-                simple_missed.append(problem)
-        
-        # Simplify the false positives list if needed
-        simple_false_positives = []
-        for false_positive in false_positives:
-            if isinstance(false_positive, dict) and "student_comment" in false_positive:
-                simple_false_positives.append(false_positive["student_comment"])
-            elif isinstance(false_positive, str):
-                simple_false_positives.append(false_positive)
+        # Simplified versions for easier processing
+        simple_identified = self._extract_simple_problems(identified_problems)
+        simple_missed = self._extract_simple_problems(missed_problems)
+        simple_false_positives = self._extract_simple_problems(false_positives, key="student_comment")
         
         # Get overall feedback
         feedback = analysis_data.get("feedback", "")
@@ -500,3 +481,23 @@ class StudentResponseEvaluator:
                 categories.add("logical error")
         
         return list(categories)
+
+    def _process_problem_list(self, problems: List[Any], key: str = "problem") -> List[Any]:
+        """Process a problem list with better language handling"""
+        result = []
+        for problem in problems:
+            if isinstance(problem, dict) and key in problem:
+                result.append(problem)
+            elif isinstance(problem, str):
+                result.append({key: problem})
+        return result
+
+    def _extract_simple_problems(self, problems: List[Any], key: str = "problem") -> List[str]:
+        """Extract simple problem strings from complex problem objects"""
+        result = []
+        for problem in problems:
+            if isinstance(problem, dict) and key in problem:
+                result.append(problem[key])
+            elif isinstance(problem, str):
+                result.append(problem)
+        return result

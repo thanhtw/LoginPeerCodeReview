@@ -97,27 +97,69 @@ class CodeDisplayUI:
                     
                     # Show previous attempt results if available
                     if review_analysis:
+                        # Helper function to get field value with language awareness
+                        def get_field_value(data, english_name, default=None):
+                            """Get a field value with language awareness"""
+                            if english_name in data:
+                                return data[english_name]
+                            
+                            # Common Chinese translations for field names
+                            chinese_mappings = {
+                                "identified_count": ["已識別數量", "識別數量"],
+                                "total_problems": ["總問題數", "問題總數"],
+                                "identified_percentage": ["識別百分比", "識別百分率"],
+                                "review_sufficient": ["審查充分", "審查足夠"]
+                            }
+                            
+                            # Try possible Chinese field names
+                            if english_name in chinese_mappings:
+                                for chinese_name in chinese_mappings[english_name]:
+                                    if chinese_name in data:
+                                        return data[chinese_name]
+                            
+                            return default
+                        
+                        # Get review metrics with language awareness
+                        identified_count = get_field_value(review_analysis, "identified_count", 0)
+                        total_problems = get_field_value(review_analysis, "total_problems", 0)
+                        identified_percentage = get_field_value(review_analysis, "identified_percentage", 0)
+                        review_sufficient = get_field_value(review_analysis, "review_sufficient", False)
+                        
+                        # Determine if we should show "try to find more issues" message
+                        # Only show this message if review is NOT sufficient
+                        if not review_sufficient and identified_count < total_problems:
+                            st.markdown(
+                                f'<div class="analysis-box">'
+                                f'<div class="guidance-title"><span class="guidance-icon">📊</span> {t("previous_results")}</div>'
+                                f'{t("you_identified")} {identified_count} {t("of")} '
+                                f'{total_problems} {t("issues")} '
+                                f'({identified_percentage:.1f}%). '
+                                f'{t("try_find_more_issues")}'
+                                f'</div>',
+                                unsafe_allow_html=True
+                            )
+                        else:
+                            # Show a success message if all issues identified
+                            st.markdown(
+                                f'<div class="analysis-box" style="border-left: 4px solid #28a745;">'
+                                f'<div class="guidance-title"><span class="guidance-icon">📊</span> {t("previous_results")}</div>'
+                                f'{t("you_identified")} {identified_count} {t("of")} '
+                                f'{total_problems} {t("issues")} '
+                                f'({identified_percentage:.1f}%).'
+                                f'</div>',
+                                unsafe_allow_html=True
+                            )
+                
+                # Display previous review if available
+                with history_col:
+                    if student_review and iteration_count > 1:
+                        st.markdown(f'<div class="guidance-title"><span class="guidance-icon">📝</span> {t("previous_review")}</div>', unsafe_allow_html=True)
                         st.markdown(
-                            f'<div class="analysis-box">'
-                            f'<div class="guidance-title"><span class="guidance-icon">📊</span> {t("previous_results")}</div>'
-                            f'{t("you_identified")} {review_analysis.get("identified_count", 0)} {t("of")} '
-                            f'{review_analysis.get("total_problems", 0)} {t("issues")} '
-                            f'({review_analysis.get("identified_percentage", 0):.1f}%). '
-                            f'{t("try_find_more_issues")}'
+                            f'<div class="review-history-box">'
+                            f'<pre style="margin: 0; white-space: pre-wrap; font-size: 0.85rem; color: var(--text);">{student_review}</pre>'
                             f'</div>',
                             unsafe_allow_html=True
                         )
-            
-            # Display previous review if available
-            with history_col:
-                if student_review and iteration_count > 1:
-                    st.markdown(f'<div class="guidance-title"><span class="guidance-icon">📝</span> {t("previous_review")}</div>', unsafe_allow_html=True)
-                    st.markdown(
-                        f'<div class="review-history-box">'
-                        f'<pre style="margin: 0; white-space: pre-wrap; font-size: 0.85rem; color: var(--text);">{student_review}</pre>'
-                        f'</div>',
-                        unsafe_allow_html=True
-                    )
         
         # Display review guidelines - UPDATED for natural language
         with st.expander(f"📋 {t('review_guidelines')}", expanded=False):

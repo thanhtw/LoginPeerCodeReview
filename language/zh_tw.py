@@ -317,6 +317,18 @@ translations = {
     "no_code_snippet_available": "沒有可用的代碼片段",
     "no_review_submitted": "沒有提交審查",
     "student_evaluator_not_initialized": "學生回應評估器未初始化",
-    "current_language": "目前語言"
+    "current_language": "目前語言",
+
+    # Field name translations
+    "identified_problems": "已識別的問題",
+    "missed_problems": "遺漏的問題", 
+    "false_positives": "誤報",
+    "identified_count": "已識別數量",
+    "total_problems": "總問題數",
+    "accuracy_percentage": "準確率百分比",
+    "review_sufficient": "審查足夠",
+    "feedback": "反饋",
+    "review_summary": "審查摘要",
+    "check_detailed_analysis": "請查看比較報告中的詳細分析以獲取更多信息。" 
 
 }
