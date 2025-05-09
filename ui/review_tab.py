@@ -93,7 +93,8 @@ def process_student_review(workflow, student_review: str):
             # Update session state
             st.session_state.workflow_state = updated_state
             
-            # Check if all errors were found
+            # ENHANCED: Check if all errors were found and transition to feedback tab
+            all_errors_found = False
             if hasattr(updated_state, 'review_history') and updated_state.review_history:
                 latest_review = updated_state.review_history[-1]
                 if hasattr(latest_review, 'analysis') and latest_review.analysis:
@@ -105,15 +106,20 @@ def process_student_review(workflow, student_review: str):
                     if identified_count == total_problems and total_problems > 0:
                         updated_state.review_sufficient = True
                         st.session_state.active_tab = 2  # Switch to feedback tab
+                        all_errors_found = True
                         logger.info("All errors found! Automatically switching to feedback tab.")
             
             # Log successful analysis
             logger.info(f"Review analysis complete for iteration {current_iteration}")
             
             # Update status
-            status.update(label=t("analysis_complete"), state="complete")
+            if all_errors_found:
+                status.update(label=t("all_errors_found"), state="complete")
+            else:
+                status.update(label=t("analysis_complete"), state="complete")
             
-            # Force UI refresh 
+            # Force UI refresh with a slight delay to ensure status message is displayed
+            time.sleep(0.5)
             st.rerun()
             
             return True
@@ -188,7 +194,7 @@ def render_review_tab(workflow, code_display_ui):
             targeted_guidance = getattr(latest_review, 'targeted_guidance', None)
             review_analysis = getattr(latest_review, 'analysis', {})
 
-    # Check if all errors are found - regardless of language
+    # ENHANCED: Check if all errors are found more reliably
     all_errors_found = False
     if review_analysis:
         identified_count = review_analysis.get("identified_count", 0)
@@ -228,11 +234,11 @@ def render_review_tab(workflow, code_display_ui):
                     total = analysis.get("total_problems", 0)
                     all_found = (identified == total and total > 0)
             
-            # Check if this was the last iteration or review is sufficient or all errors found
-            if (updated_state.current_iteration >= updated_state.max_iterations or 
+            # ENHANCED: Check if this was the last iteration or review is sufficient or all errors found
+            if (updated_state.current_iteration > updated_state.max_iterations or 
                 updated_state.review_sufficient or all_found):
                 logger.info(t("review_process_complete"))
-                # Switch to feedback tab (index 2)
+                # Switch to feedback tab (index 2) and force rerun
                 st.session_state.active_tab = 2
             
             # Force rerun to update UI
@@ -251,9 +257,11 @@ def render_review_tab(workflow, code_display_ui):
         # Display appropriate message based on why review is blocked
         if st.session_state.workflow_state.review_sufficient or all_errors_found:
             st.success(f"{t('all_errors_found')}")
-            # If all errors found, ensure we move to the feedback tab
+            # ENHANCED: If all errors found, ensure we move to the feedback tab
             if st.session_state.active_tab != 2:
                 st.session_state.active_tab = 2
+                # Add a slight delay to ensure the status message is displayed
+                time.sleep(0.5)
                 st.rerun()
         else:
             st.warning(t("iterations_completed").format(max_iterations=max_iterations))

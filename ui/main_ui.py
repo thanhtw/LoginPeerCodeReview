@@ -345,16 +345,31 @@ def create_enhanced_tabs(labels: List[str]):
         # Determine if review is completed
         review_completed = False
         
-        # Check if max iterations reached or review is sufficient
+        # ENHANCED: Check if max iterations reached or review is sufficient or all errors identified
         if hasattr(state, 'current_iteration') and hasattr(state, 'max_iterations'):
             if state.current_iteration > state.max_iterations:
                 review_completed = True
+                logger.info("Review completed: max iterations reached")
             elif hasattr(state, 'review_sufficient') and state.review_sufficient:
                 review_completed = True
+                logger.info("Review completed: sufficient review")
+            
+            # ENHANCED: Check for all errors identified based on the latest review analysis
+            elif hasattr(state, 'review_history') and state.review_history:
+                latest_review = state.review_history[-1]
+                if hasattr(latest_review, 'analysis'):
+                    analysis = latest_review.analysis
+                    identified_count = analysis.get("identified_count", 0)
+                    total_problems = analysis.get("total_problems", 0)
+                    if identified_count == total_problems and total_problems > 0:
+                        review_completed = True
+                        # Ensure state is updated for consistency
+                        state.review_sufficient = True
+                        logger.info(f"Review completed: all {total_problems} issues identified")
         
         # Block access to feedback tab (index 2) if review not completed
         if current_tab == 2 and not review_completed:
-            st.warning("Please complete all review attempts before accessing feedback.")
+            st.warning(t("complete_review_first"))
             # Reset to review tab
             st.session_state.active_tab = 1
             current_tab = 1

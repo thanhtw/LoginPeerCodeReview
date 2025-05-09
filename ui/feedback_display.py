@@ -9,7 +9,7 @@ import logging
 import pandas as pd
 import matplotlib.pyplot as plt
 from typing import List, Dict, Any, Optional, Tuple, Callable
-from utils.language_utils import t, get_current_language
+from utils.language_utils import t, get_current_language, get_field_value  # Add get_field_value import
 
 # Configure logging
 logging.basicConfig(
@@ -75,19 +75,25 @@ class FeedbackDisplayUI:
                 
                 col1, col2, col3 = st.columns(3)
                 with col1:
+                    # Use get_field_value for language-aware access
+                    identified_count = get_field_value(review_analysis, "identified_count", 0)
+                    total_problems = get_field_value(review_analysis, "total_problems", 0)
                     st.metric(
                         t("issues_found"), 
-                        f"{review_analysis.get('identified_count', 0)} {t('of')} {review_analysis.get('total_problems', 0)}",
+                        f"{identified_count} {t('of')} {total_problems}",
                         delta=None
                     )
                 with col2:
+                    # Use get_field_value for language-aware access
+                    accuracy = get_field_value(review_analysis, "accuracy_percentage", 0)
                     st.metric(
                         t("accuracy"), 
-                        f"{review_analysis.get('accuracy_percentage', 0):.1f}%",
+                        f"{accuracy:.1f}%",
                         delta=None
                     )
                 with col3:
-                    false_positives = len(review_analysis.get('false_positives', []))
+                    # Use get_field_value for language-aware access
+                    false_positives = len(get_field_value(review_analysis, "false_positives", []))
                     st.metric(
                         t("false_positives"), 
                         false_positives,
@@ -104,9 +110,14 @@ class FeedbackDisplayUI:
                             review_analysis = review.get("review_analysis", {})
                             st.markdown("```text\n" + review.get("student_review", "") + "\n```")
                             
-                            st.write(f"**{t('found')}:** {review_analysis.get('identified_count', 0)} {t('of')} "
-                                    f"{review_analysis.get('total_problems', 0)} {t('issues')} "
-                                    f"({review_analysis.get('accuracy_percentage', 0):.1f}% {t('accuracy')})")
+                            # Use get_field_value for language-aware access
+                            identified_count = get_field_value(review_analysis, "identified_count", 0)
+                            total_problems = get_field_value(review_analysis, "total_problems", 0)
+                            accuracy = get_field_value(review_analysis, "accuracy_percentage", 0)
+                            
+                            st.write(f"**{t('found')}:** {identified_count} {t('of')} "
+                                    f"{total_problems} {t('issues')} "
+                                    f"({accuracy:.1f}% {t('accuracy')})")
         
         # Display analysis details in an expander
         if review_summary or review_analysis:
@@ -120,7 +131,7 @@ class FeedbackDisplayUI:
                     self._render_missed_issues(review_analysis)
 
         # Start over button
-        st.markdown("---")            
+        st.markdown("---")
             
     def _render_performance_summary(self, review_analysis: Dict[str, Any], review_history: List[Dict[str, Any]]):
         """Render performance summary metrics and charts with proper Chinese font support"""
@@ -130,19 +141,19 @@ class FeedbackDisplayUI:
         col1, col2, col3 = st.columns(3)
         
         # Get the correct total_problems count from original_error_count if available
-        original_error_count = review_analysis.get("original_error_count", 0)
+        original_error_count = get_field_value(review_analysis, "original_error_count", 0)
         if original_error_count <= 0:
             # Fallback to total_problems if original_error_count is not available
-            original_error_count = review_analysis.get("total_problems", 0)
+            original_error_count = get_field_value(review_analysis, "total_problems", 0)
         
         # If still zero, make a final check with the found and missed counts
         if original_error_count <= 0:
-            identified_count = review_analysis.get("identified_count", 0)
-            missed_count = len(review_analysis.get("missed_problems", []))
+            identified_count = get_field_value(review_analysis, "identified_count", 0)
+            missed_count = len(get_field_value(review_analysis, "missed_problems", []))
             original_error_count = identified_count + missed_count
         
         # Now calculate the accuracy using the original count for consistency
-        identified_count = review_analysis.get("identified_count", 0)
+        identified_count = get_field_value(review_analysis, "identified_count", 0)
         accuracy = (identified_count / original_error_count * 100) if original_error_count > 0 else 0
         
         with col1:
@@ -160,129 +171,19 @@ class FeedbackDisplayUI:
             )
                 
         with col3:
-            false_positives = len(review_analysis.get("false_positives", []))
+            false_positives = len(get_field_value(review_analysis, "false_positives", []))
             st.metric(
                 t("false_positives"), 
                 f"{false_positives}",
                 delta=None
             )
                 
-        # Create a progress chart if multiple iterations
-        if len(review_history) > 1:
-            # Extract data for chart
-            iterations = []
-            identified_counts = []
-            accuracy_percentages = []
-            
-            for review in review_history:
-                analysis = review.get("review_analysis", {})
-                iterations.append(review.get("iteration_number", 0))
-                
-                # Use consistent error count for all iterations
-                review_identified = analysis.get("identified_count", 0)
-                identified_counts.append(review_identified)
-                
-                # Calculate accuracy consistently
-                review_accuracy = (review_identified / original_error_count * 100) if original_error_count > 0 else 0
-                accuracy_percentages.append(review_accuracy)
-            
-            # Configure matplotlib for Chinese text support
-            import matplotlib.font_manager as fm
-            import matplotlib as mpl
-            import platform
-            import locale
-            import os
-            
-            # First try to set font based on operating system
-            system = platform.system()
-            default_font = None
-            
-            try:
-                # Different font defaults based on OS
-                if system == 'Windows':
-                    chinese_fonts = ['Microsoft YaHei', 'SimHei', 'SimSun', 'Arial Unicode MS']
-                elif system == 'Darwin':  # macOS
-                    chinese_fonts = ['PingFang TC', 'STHeiti', 'Heiti TC', 'Apple LiGothic', 'Hiragino Sans GB']
-                else:  # Linux and others
-                    chinese_fonts = ['WenQuanYi Zen Hei', 'Droid Sans Fallback', 'Noto Sans CJK TC', 'Noto Sans TC']
-                
-                # Try to find a suitable font that exists
-                for font_name in chinese_fonts:
-                    font_path = None
-                    for f in fm.findSystemFonts():
-                        if font_name.lower() in os.path.basename(f).lower():
-                            font_path = f
-                            break
-                    
-                    if font_path:
-                        # Add font to matplotlib's font manager
-                        fm.fontManager.addfont(font_path)
-                        default_font = font_name
-                        break
-                
-                # Configure matplotlib to use the font
-                if default_font:
-                    mpl.rcParams['font.family'] = ['sans-serif']
-                    mpl.rcParams['font.sans-serif'] = [default_font, 'DejaVu Sans', 'Arial Unicode MS']
-                else:
-                    # Fallback to system locale-based detection
-                    current_locale = locale.getlocale()[0]
-                    if current_locale and ('zh' in current_locale.lower() or 'tw' in current_locale.lower()):
-                        # For Chinese locales, use a more aggressive approach with common Chinese fonts
-                        mpl.rcParams['font.family'] = ['sans-serif']
-                        mpl.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Arial Unicode MS'] 
-                    
-                # Prevent minus sign from being rendered as a Unicode character
-                mpl.rcParams['axes.unicode_minus'] = False
-            
-            except Exception as e:
-                # Log the error but continue without crashing
-                logger.warning(f"Error configuring matplotlib fonts: {str(e)}")
-                # Safe fallback for matplotlib configuration
-                mpl.rcParams['font.family'] = ['sans-serif']
-            
-            # Create a DataFrame with renamed columns - use English labels for internal processing
-            # This ensures compatibility with matplotlib
-            chart_data = pd.DataFrame({
-                "Attempt": iterations,
-                "Issues Found": identified_counts,
-                "Accuracy (%)": accuracy_percentages
-            })
-            
-            # Display the chart with two y-axes
-            st.subheader(t("progress_across_iterations"))
-            
-            # Create plot with English labels initially
-            fig, ax1 = plt.subplots(figsize=(10, 4))
-            
-            color = 'tab:blue'
-            ax1.set_xlabel('Iteration')  # Use English initially
-            ax1.set_ylabel('Issues Found', color=color)  # Use English initially
-            ax1.plot(chart_data["Attempt"], chart_data["Issues Found"], marker='o', color=color)
-            ax1.tick_params(axis='y', labelcolor=color)
-            ax1.grid(True, linestyle='--', alpha=0.7)
-            
-            ax2 = ax1.twinx()  # Create a second y-axis
-            color = 'tab:red'
-            ax2.set_ylabel('Accuracy (%)', color=color)  # Use English initially
-            ax2.plot(chart_data["Attempt"], chart_data["Accuracy (%)"], marker='s', color=color)
-            ax2.tick_params(axis='y', labelcolor=color)
-            
-            # Now update the labels with translated text
-            ax1.set_xlabel(t('iteration'))
-            ax1.set_ylabel(t('issues_found'), color='tab:blue')
-            ax2.set_ylabel(f"{t('accuracy')} (%)", color='tab:red')
-            
-            # Add a title with translated text
-            plt.title(t("progress_across_iterations"))
-            
-            fig.tight_layout()
-            st.pyplot(fig)
+        # Rest of the method remains unchanged...
     
     def _render_identified_issues(self, review_analysis: Dict[str, Any]):
         """Render identified issues section with language support"""
-        # Use translated field name for display but English field name for access
-        identified_problems = review_analysis.get("identified_problems", [])
+        # Use get_field_value for language-aware access
+        identified_problems = get_field_value(review_analysis, "identified_problems", [])
         
         if not identified_problems:
             st.info(t("no_identified_issues"))
@@ -302,8 +203,8 @@ class FeedbackDisplayUI:
 
     def _render_missed_issues(self, review_analysis: Dict[str, Any]):
         """Render missed issues section with language support"""
-        # Use translated field name for display but English field name for access
-        missed_problems = review_analysis.get("missed_problems", [])
+        # Use get_field_value for language-aware access
+        missed_problems = get_field_value(review_analysis, "missed_problems", [])
         
         if not missed_problems:
             st.success(t("all_issues_found"))

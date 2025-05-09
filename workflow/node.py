@@ -12,6 +12,7 @@ from typing import Dict, Any, List, Tuple, Optional
 from state_schema import WorkflowState, CodeSnippet
 from utils.code_utils import extract_both_code_versions, create_regeneration_prompt, get_error_count_from_state
 import random
+from utils.language_utils import t, get_field_value  
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -400,6 +401,8 @@ class WorkflowNodes:
             Updated workflow state with review analysis
         """
         try:
+            # Import get_field_value from language_utils
+            
             # Validate review history
             if not state.review_history:
                 state.error = t("no_review_submitted")
@@ -441,7 +444,9 @@ class WorkflowNodes:
             if original_error_count > 0:
                 # Store the found problem count and original count
                 found_problems_count = len(known_problems)
-                identified_count = analysis.get("identified_count", 0)
+                
+                # Use language-aware field value retrieval
+                identified_count = get_field_value(analysis, "identified_count", 0)
                 
                 # IMPORTANT FIX: Override total_problems to use original_error_count
                 analysis["total_problems"] = original_error_count
@@ -452,8 +457,8 @@ class WorkflowNodes:
                 analysis["accuracy_percentage"] = (identified_count / original_error_count) * 100
                 
                 # Handle field language consistently
-                identified_problems = analysis.get("identified_problems", [])
-                missed_problems = analysis.get("missed_problems", [])
+                identified_problems = get_field_value(analysis, "identified_problems", [])
+                missed_problems = get_field_value(analysis, "missed_problems", [])
                 
                 logger.info(f"Updated review analysis: {identified_count}/{original_error_count} " +
                         f"({analysis['identified_percentage']:.1f}%) [Found problems: {found_problems_count}]")
@@ -463,7 +468,6 @@ class WorkflowNodes:
                     analysis["review_sufficient"] = True
                     logger.info("All errors found! Marking review as sufficient.")
                     
-
             # Update the review with analysis
             latest_review.analysis = analysis
             

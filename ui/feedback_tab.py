@@ -10,7 +10,7 @@ import time
 import traceback
 from typing import Dict, List, Any, Optional, Callable
 from utils.code_utils import generate_comparison_report
-from utils.language_utils import t, get_current_language
+from utils.language_utils import t, get_current_language, get_field_value
 
 # Configure logging
 logging.basicConfig(
@@ -49,8 +49,9 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
             latest_review = state.review_history[-1]
             analysis = latest_review.analysis if hasattr(latest_review, 'analysis') else {}
             
-            identified_count = analysis.get("identified_count", 0)
-            total_problems = analysis.get("total_problems", 0) 
+            # Use get_field_value for language-aware field access
+            identified_count = get_field_value(analysis, "identified_count", 0)
+            total_problems = get_field_value(analysis, "total_problems", 0) 
             
             if identified_count == total_problems and total_problems > 0:
                 review_completed = True
@@ -85,9 +86,11 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
         # Get the original error count
         original_error_count = state.original_error_count
         if original_error_count <= 0:
-            original_error_count = analysis.get("total_problems", 0)
+            # Use get_field_value for language-aware field access
+            original_error_count = get_field_value(latest_review.analysis, "total_problems", 0)
         
-        identified_count = analysis.get("identified_count", 0)
+        # Use get_field_value for language-aware field access
+        identified_count = get_field_value(latest_review.analysis, "identified_count", 0)
         identified_percentage = (identified_count / original_error_count * 100) if original_error_count > 0 else 0
         
         state.review_summary = (
@@ -126,51 +129,56 @@ def render_feedback_tab(workflow, feedback_display_ui, auth_ui=None):
     # Update user statistics if AuthUI is provided and we have analysis
     if auth_ui and latest_analysis:       
         current_iteration = getattr(state, 'current_iteration', 1) 
-        identified_count = latest_analysis.get("identified_count", 0)
+        # Use get_field_value for language-aware field access
+        identified_count = get_field_value(latest_analysis, "identified_count", 0)
         stats_key = f"stats_updated_{current_iteration}_{identified_count}"
     
-    if stats_key not in st.session_state:
-        try:
-            # Extract accuracy and identified_count from the latest review
-            accuracy = latest_analysis.get("identified_percentage", 0)
-            
-            # Log details before update
-            logger.info(f"{t('preparing_update_stats')}: {t('accuracy')}={accuracy:.1f}%, " + 
-                    f"{t('score')}={identified_count} ({t('identified_count')}), key={stats_key}")
-            
-            # Update user stats with identified_count as score
-            result = auth_ui.update_review_stats(accuracy, identified_count)
-            
-            # Store the update result for debugging
-            st.session_state[stats_key] = result
-            
-            # Log the update result
-            if result and result.get("success", False):
-                logger.info(f"{t('successfully_updated_statistics')}: {result}")
+        if stats_key not in st.session_state:
+            try:
+                # Extract accuracy and identified_count from the latest review
+                # Use get_field_value for language-aware field access
+                accuracy = get_field_value(latest_analysis, "identified_percentage", 0)
                 
-                # Add explicit UI message about the update
-                st.success(f"{t('statistics_updated')}! {t('added')} {identified_count} {t('to_your_score')}.")
+                # Log details before update
+                logger.info(f"{t('preparing_update_stats')}: {t('accuracy')}={accuracy:.1f}%, " + 
+                        f"{t('score')}={identified_count} ({t('identified_count')}), key={stats_key}")
                 
-                # Show level promotion message if level changed
-                if result.get("level_changed", False):
-                    old_level = result.get("old_level", "").capitalize()
-                    new_level = result.get("new_level", "").capitalize()
-                    st.balloons()  # Add visual celebration effect
-                    st.success(f"🎉 {t('congratulations')}! {t('level_upgraded')} {old_level} {t('to')} {new_level}!")
+                # Update user stats with identified_count as score
+                result = auth_ui.update_review_stats(accuracy, identified_count)
                 
-                # Give the database a moment to complete the update
-                time.sleep(0.5)
+                # Store the update result for debugging
+                st.session_state[stats_key] = result
                 
-                # Force UI refresh after successful update
-                st.rerun()
-            else:
-                err_msg = result.get('error', t('unknown_error')) if result else t('no_result_returned')
-                logger.error(f"{t('failed_update_statistics')}: {err_msg}")
-                st.error(f"{t('failed_update_statistics')}: {err_msg}")
-        except Exception as e:
-            logger.error(f"{t('error')} {t('updating_user_statistics')}: {str(e)}")
-            logger.error(traceback.format_exc())
-            st.error(f"{t('error')} {t('updating_statistics')}: {str(e)}")
+                # Log the update result
+                # Use get_field_value for language-aware field access
+                if result and get_field_value(result, "success", False):
+                    logger.info(f"{t('successfully_updated_statistics')}: {result}")
+                    
+                    # Add explicit UI message about the update
+                    st.success(f"{t('statistics_updated')}! {t('added')} {identified_count} {t('to_your_score')}.")
+                    
+                    # Show level promotion message if level changed
+                    # Use get_field_value for language-aware field access
+                    if get_field_value(result, "level_changed", False):
+                        old_level = get_field_value(result, "old_level", "").capitalize()
+                        new_level = get_field_value(result, "new_level", "").capitalize()
+                        st.balloons()  # Add visual celebration effect
+                        st.success(f"🎉 {t('congratulations')}! {t('level_upgraded')} {old_level} {t('to')} {new_level}!")
+                    
+                    # Give the database a moment to complete the update
+                    time.sleep(0.5)
+                    
+                    # Force UI refresh after successful update
+                    st.rerun()
+                else:
+                    # Use get_field_value for language-aware field access
+                    err_msg = get_field_value(result, 'error', t('unknown_error')) if result else t('no_result_returned')
+                    logger.error(f"{t('failed_update_statistics')}: {err_msg}")
+                    st.error(f"{t('failed_update_statistics')}: {err_msg}")
+            except Exception as e:
+                logger.error(f"{t('error')} {t('updating_user_statistics')}: {str(e)}")
+                logger.error(traceback.format_exc())
+                st.error(f"{t('error')} {t('updating_statistics')}: {str(e)}")
     
     # Display feedback results
     feedback_display_ui.render_results(
