@@ -34,8 +34,21 @@ def set_language(lang: str):
     Args:
         lang: Language code (e.g., 'en', 'zh-tw')
     """
+    # Check if language is actually changing
+    current_lang = get_current_language()
+    if lang == current_lang:
+        # No change needed
+        return
+    
     if lang in SUPPORTED_LANGUAGES:
+        # Store the old language for logging
+        old_lang = st.session_state.language
+        # Update the language
         st.session_state.language = lang
+        logger.info(f"Changed language from {old_lang} to {lang}")
+        
+        # Set a flag to indicate language has changed
+        st.session_state.language_changed = True
     else:
         logger.warning(f"Unsupported language: {lang}, using default: {DEFAULT_LANGUAGE}")
         st.session_state.language = DEFAULT_LANGUAGE
@@ -84,11 +97,29 @@ def render_language_selector():
         with cols[0]:
             if st.button("English", use_container_width=True, 
                          disabled=get_current_language() == "en"):
+                # Set the language
                 set_language("en")
+                # Force UI refresh to apply the language change
+                #st.session_state.provider_selection["setup_complete"] = False
+                #st.session_state.provider_selection["show_setup_modal"] = True
                 st.rerun()
                 
         with cols[1]:
             if st.button("繁體中文", use_container_width=True, 
                          disabled=get_current_language() == "zh-tw"):
+                # Set the language
                 set_language("zh-tw")
+                #st.session_state.provider_selection["setup_complete"] = False
+                #st.session_state.provider_selection["show_setup_modal"] = True
+                # Force UI refresh to apply the language change
                 st.rerun()
+        
+        # Add a more visible indicator for the current language
+        current_lang = get_current_language()
+        lang_display = "English" if current_lang == "en" else "繁體中文"
+        st.markdown(f"""
+        <div style="text-align: center; padding: 5px; background-color: rgba(76, 104, 215, 0.1); 
+                    border-radius: 5px; margin-top: 5px;">
+        <small>{t("current_language")}: <strong>{lang_display}</strong></small>
+        </div>
+        """, unsafe_allow_html=True)

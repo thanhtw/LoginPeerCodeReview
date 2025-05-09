@@ -78,14 +78,17 @@ def init_session_state():
         del st.session_state.code_snippet
 
 def render_llm_logs_tab():
-    """Render the LLM logs tab with detailed log information and file browsing capabilities with full translation support."""
+    """Render the LLM logs tab with detailed log information and file browsing capabilities with full translation support and language filtering."""
     st.subheader(t("llm_logs_title") or "LLM Interaction Logs")
     
     if hasattr(st, 'session_state') and 'llm_logger' in st.session_state:
         llm_logger = st.session_state.llm_logger
         
+        # Get current language
+        current_language = get_current_language()
+        
         # Add refresh button at the top
-        col1, col2 = st.columns([5, 1])
+        col1, col2, col3 = st.columns([4, 1, 1])
         with col2:
             if st.button(t("refresh_logs") or "Refresh Logs", key="refresh_logs_btn"):
                 st.rerun()
@@ -94,8 +97,12 @@ def render_llm_logs_tab():
             # Make the log count configurable
             log_count = st.slider(t("logs_to_display") or "Number of logs to display", min_value=5, max_value=30, value=10, step=5)
         
+        with col3:
+            # Add an option to filter logs by language
+            language_filter = st.checkbox(t("filter_by_language") or "Filter by language", value=True)
+        
         # Get logs (will now include both in-memory and disk logs)
-        logs = llm_logger.get_recent_logs(log_count)
+        logs = llm_logger.get_recent_logs(log_count * 3)  # Get more logs to allow for filtering
         
         if logs:
             # Add filter for log types
@@ -115,12 +122,40 @@ def render_llm_logs_tab():
             # Filter logs by type
             filtered_logs = [log for log in logs if log.get("type", "unknown") in log_type_filter]
             
-            if filtered_logs:
-                st.success(t("displaying_logs").format(count=len(filtered_logs)) if t("displaying_logs") else 
-                          f"Displaying {len(filtered_logs)} recent logs. Newest logs appear first.")
+            # Filter logs by language if option is selected
+            if language_filter:
+                # Helper function to detect language in prompt text
+                def is_language_match(text, lang_code):
+                    if not text:
+                        return True  # Include logs with empty text
+                    
+                    if lang_code == "en":
+                        # Check for English instructions
+                        return "Please respond in English" in text
+                    elif lang_code == "zh-tw":
+                        # Check for Traditional Chinese instructions
+                        return "請用繁體中文回答" in text
+                    return True  # Default to include
+                
+                language_filtered_logs = []
+                for log in filtered_logs:
+                    prompt = log.get("prompt", "")
+                    # Check if the prompt contains language-specific instructions
+                    if is_language_match(prompt, current_language):
+                        language_filtered_logs.append(log)
+                
+                # Use the language-filtered logs
+                display_logs = language_filtered_logs
+                st.info(f"{t('language_filtered_logs') or 'Showing logs in the current language'} ({len(language_filtered_logs)}/{len(filtered_logs)})")
+            else:
+                display_logs = filtered_logs
+            
+            if display_logs:
+                st.success(t("displaying_logs").format(count=len(display_logs)) if t("displaying_logs") else 
+                          f"Displaying {len(display_logs)} recent logs. Newest logs appear first.")
                 
                 # Display logs with improved UI
-                for idx, log in enumerate(filtered_logs):
+                for idx, log in enumerate(display_logs):
                     # Format timestamp for display
                     timestamp = log.get("timestamp", t("unknown_time") or "Unknown time")
                     if "T" in timestamp:
